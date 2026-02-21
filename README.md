@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -71,3 +72,7 @@ export default defineConfig([
   },
 ])
 ```
+=======
+# bloody-rubynts-jewel-vault
+Bloody Rubynts Jewel Vault – Match-3 game app prototype
+>>>>>>> ead3b56bf5318b574eb69fdb6937c144bd8dbdc0
