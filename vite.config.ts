@@ -3,6 +3,5 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  // GitHub Pages repo-name base path:
-  base: "/bloody-rubynts-jewel-vault/",
+  base: "./",
 });
