@@ -1,0 +1,13 @@
+{
+  "menu": {
+    "title": "ÉKSZERBOLTOZAT",
+    "enter": "Lépj be a trezorba",
+    "shop": "Üzlet",
+    "wallet": "Pénztárca"
+  },
+  "feedback": {
+    "title": "Próba verzió visszajelzés",
+    "subtitle": "Írd le a hibát vagy ötletet. Másold ki és illeszd be Discordra vagy Redditre.",
+    "placeholder": "Hiba, ötlet, javaslat..."
+  }
+}

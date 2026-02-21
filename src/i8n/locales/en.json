@@ -1,0 +1,13 @@
+{
+  "menu": {
+    "title": "JEWEL VAULT",
+    "enter": "Enter the Vault",
+    "shop": "Shop",
+    "wallet": "Wallet"
+  },
+  "feedback": {
+    "title": "Trial Feedback",
+    "subtitle": "Write a bug/idea. Copy and paste into Discord or Reddit.",
+    "placeholder": "Bug, idea, suggestion..."
+  }
+}
