@@ -152,6 +152,12 @@ const MainGame = () => {
   }, []);
 
   useEffect(() => {
+  const gtag = (window as any).gtag;
+  if (typeof gtag === "function") {
+    gtag("event", "jewel_vault_loaded");
+  }
+}, []);
+  useEffect(() => {
     if (!trialMsg) return;
     const id = window.setTimeout(() => setTrialMsg(null), 2500);
     return () => window.clearTimeout(id);
