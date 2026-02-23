@@ -118,16 +118,16 @@ export function TopBar(props: {
   }, [mode, timeLeftSec, timeLimitSec]);
 
   return (
-  <div className="fixed top-0 left-0 right-0 z-[9999] h-8 md:h-20">
-  <div className="w-full px-3 py-2 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-3">
+  <div className="fixed top-0 left-0 right-0 z-[9999] h-6 md:h-20">
+  <div className="w-full px-3 py-1 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-4xl mx-auto flex flex-nowrap md:flex-wrap items-center gap-2">
           {/* Bal gombok */}
           <div className="flex items-center gap-2">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
+                className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
                 title="Vissza"
               >
                 ←
@@ -137,7 +137,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={onHome}
-                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
+                className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
                 title="Home"
               >
                 ⌂
