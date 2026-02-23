@@ -280,9 +280,11 @@ const MainGame = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
-      {isTrial && <TopLeftLinks />}
-      {isTrial && <LangToggle />}
-      {isTrial && <FeedbackButton />}
+      {isTrial && (
+  <div className="hidden md:block">
+    <TopLeftLinks />
+  </div>
+)}
 
       {trialMsg && (
         <div className="fixed left-1/2 top-40 z-[9999] -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
