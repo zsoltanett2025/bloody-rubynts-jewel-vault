@@ -119,8 +119,8 @@ export function TopBar(props: {
 
   return (
        <div className="fixed top-0 left-0 right-0 z-[9999]">
-       <div className="w-full px-2 py-1 md:px-4 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-2 md:gap-3">
+       <div className="w-full px-2 py-0.5 md:px-4 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-4xl mx-auto flex flex-nowrap items-center gap-2 md:gap-3 overflow-x-auto scrollbar-none">
           {/* Bal gombok */}
           <div className="flex items-center gap-2">
             {onBack && (
