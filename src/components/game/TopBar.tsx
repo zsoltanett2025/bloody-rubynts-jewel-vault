@@ -112,8 +112,8 @@ export function TopBar(props: {
   }, [mode, timeLeftSec, timeLimitSec]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999]">
-      <div className="w-full px-3 py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
+  <div className="fixed top-0 left-0 right-0 z-[9999] h-16 md:h-20">
+  <div className="w-full px-3 py-2 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           {/* Bal gombok */}
           <div className="flex items-center gap-2">

@@ -311,13 +311,13 @@ const MainGame = () => {
       <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/40 via-red-950/20 to-black/70 pointer-events-none" />
 
       {/* ✅ TARTALOM */}
-      <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center">
+      <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center pt-16 md:pt-20">
         {screen === "game" && story && (
           <StorySidePanels leftText={story.left} rightText={story.right} showKnights showDragons={level >= 50} />
         )}
 
         {screen === "menu" && (
-          <div className="flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-500 pt-24">
+         <div className="flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-500 pt-16 md:pt-20">
             <div className="text-center">
               <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-red-300 to-red-600 font-gothic tracking-wider uppercase">
                 {t("menu.title")}
