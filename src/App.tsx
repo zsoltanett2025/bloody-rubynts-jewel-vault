@@ -18,8 +18,6 @@ import { isShardLevel, markShardFound } from "./utils/shards";
 
 import { isTrial } from "./app/mode";
 import { TopLeftLinks } from "./ui/TopLeftLinks";
-import { LangToggle } from "./ui/LangToggle";
-import { FeedbackButton } from "./ui/FeedbackButton";
 import { InfoModal } from "./ui/InfoModal";
 import { InfoButton } from "./ui/InfoButton";
 const LS_CURRENT = "br_currentLevel";
