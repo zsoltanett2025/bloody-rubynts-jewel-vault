@@ -112,9 +112,9 @@ export function TopBar(props: {
   }, [mode, timeLeftSec, timeLimitSec]);
 
   return (
-  <div className="fixed top-0 left-0 right-0 z-[9999] h-16 md:h-20">
-  <div className="w-full px-3 py-2 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
+  <div className="fixed top-0 left-0 right-0 z-[9999] h-24 md:h-20">
+  <div className="w-full px-3 py-4 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-3">
           {/* Bal gombok */}
           <div className="flex items-center gap-2">
             {onBack && (
@@ -163,7 +163,7 @@ export function TopBar(props: {
           </div>
 
           {/* Score + progress */}
-          <div className="flex-1">
+          <div className="w-full md:flex-1 order-3 md:order-none">
             <div className="flex items-end justify-between gap-3">
               <div className="text-white/90">
                 <div className="text-xs text-white/60">score</div>
@@ -191,11 +191,11 @@ export function TopBar(props: {
               <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
               <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
 
-              <div className="mt-1 flex justify-between text-[10px] text-white/45 tabular-nums">
-                <span>1★ {star1}</span>
-                <span>2★ {star2}</span>
-                <span>3★ {star3}</span>
-              </div>
+             <div className="mt-1 hidden md:flex justify-between text-[10px] text-white/45 tabular-nums">
+               <span>1★ {star1}</span>
+               <span>2★ {star2}</span>
+               <span>3★ {star3}</span>
+             </div>
             </div>
           </div>
 
