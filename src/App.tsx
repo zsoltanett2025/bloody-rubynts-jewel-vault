@@ -20,6 +20,7 @@ import { isTrial } from "./app/mode";
 import { TopLeftLinks } from "./ui/TopLeftLinks";
 import { InfoModal } from "./ui/InfoModal";
 import { InfoButton } from "./ui/InfoButton";
+
 const LS_CURRENT = "br_currentLevel";
 const LS_UNLOCKED = "br_unlockedLevel";
 
@@ -71,6 +72,13 @@ function getStoryForLevel(lvlLike: number): { left: string; right: string } | nu
   }
 }
 
+function calcStars(score: number, targetScore: number) {
+  const star1 = targetScore;
+  const star2 = Math.floor(targetScore * 1.5);
+  const star3 = Math.floor(targetScore * 2);
+  return score >= star3 ? 3 : score >= star2 ? 2 : score >= star1 ? 1 : 0;
+}
+
 const MainGame = () => {
   const [trialMsg, setTrialMsg] = useState<string | null>(null);
 
@@ -118,6 +126,9 @@ const MainGame = () => {
     return clampLevel(Number(raw ?? 1));
   });
 
+  // ✅ csak egyszer reportoljuk a PASS-t egy adott szinten
+  const [reportedPassLevel, setReportedPassLevel] = useState<number>(0);
+
   useEffect(() => localStorage.setItem(LS_CURRENT, String(currentLevel)), [currentLevel]);
   useEffect(() => localStorage.setItem(LS_UNLOCKED, String(unlockedLevel)), [unlockedLevel]);
 
@@ -150,11 +161,12 @@ const MainGame = () => {
   }, []);
 
   useEffect(() => {
-  const gtag = (window as any).gtag;
-  if (typeof gtag === "function") {
-    gtag("event", "jewel_vault_loaded");
-  }
-}, []);
+    const gtag = (window as any).gtag;
+    if (typeof gtag === "function") {
+      gtag("event", "jewel_vault_loaded");
+    }
+  }, []);
+
   useEffect(() => {
     if (!trialMsg) return;
     const id = window.setTimeout(() => setTrialMsg(null), 2500);
@@ -193,7 +205,35 @@ const MainGame = () => {
     } catch {}
   }, [screen, level]);
 
-  // ✅ END MODAL
+  // ✅ csillag állapot (élőben)
+  const starsNow = useMemo(() => {
+    if (screen !== "game") return 0;
+    return calcStars(score, targetScore);
+  }, [screen, score, targetScore]);
+
+  const passedNow = screen === "game" && starsNow >= 1;
+  const canGoNextNow = screen === "game" && starsNow >= 3;
+
+  // ✅ 1★-nál azonnali PASS (unlock + completeLevel), de a játék mehet tovább
+  useEffect(() => {
+    if (screen !== "game") return;
+    if (!passedNow) return;
+    if (reportedPassLevel === level) return;
+
+    setReportedPassLevel(level);
+
+    // unlock next level
+    const next = clampLevel(level + 1);
+    setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
+
+    // game state / shard log
+    try {
+      completeLevel?.(level, score, starsNow);
+      if (isShardLevel(level)) markShardFound(level);
+    } catch {}
+  }, [screen, passedNow, reportedPassLevel, level, completeLevel, score, starsNow]);
+
+  // ✅ END MODAL (csak akkor, ha elfogy a lépés / lejár az idő)
   useEffect(() => {
     if (screen !== "game") return;
     if (endOpen) return;
@@ -203,11 +243,7 @@ const MainGame = () => {
 
     if (!timedOut && !noMoves) return;
 
-    const star1 = targetScore;
-    const star2 = Math.floor(targetScore * 1.5);
-    const star3 = Math.floor(targetScore * 2);
-
-    const starsNow = score >= star3 ? 3 : score >= star2 ? 2 : score >= star1 ? 1 : 0;
+    // itt is a live stars szerint döntünk
     const passed = starsNow >= 1;
 
     setEndWon(passed);
@@ -216,11 +252,8 @@ const MainGame = () => {
 
     playSound("click");
 
-    if (passed) {
-      completeLevel?.(level, score, starsNow);
-      if (isShardLevel(level)) markShardFound(level);
-    }
-  }, [screen, endOpen, mode, timeLeftSec, moves, score, targetScore, level, completeLevel]);
+    // completeLevel PASS-ot már 1★-nál elintéztük, itt nem kell még egyszer
+  }, [screen, endOpen, mode, timeLeftSec, moves, starsNow]);
 
   const tileSize = useMemo(() => {
     const bs = boardSize || 8;
@@ -279,10 +312,10 @@ const MainGame = () => {
   return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
       {isTrial && (
-  <div className="hidden md:block">
-    <TopLeftLinks />
-  </div>
-)}
+        <div className="hidden md:block">
+          <TopLeftLinks />
+        </div>
+      )}
 
       {trialMsg && (
         <div className="fixed left-1/2 top-40 z-[9999] -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
@@ -292,8 +325,8 @@ const MainGame = () => {
 
       {isTrial && (
         <div className="fixed left-4 bottom-16 z-[9997] text-white/30 text-xs font-mono tracking-widest pointer-events-none">
-  TRIAL BUILD
-</div>
+          TRIAL BUILD
+        </div>
       )}
 
       {/* ✅ FULLSCREEN háttér */}
@@ -317,14 +350,12 @@ const MainGame = () => {
         )}
 
         {screen === "menu" && (
-         <div className="flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-500 pt-16 md:pt-24">
+          <div className="flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-500 pt-16 md:pt-24">
             <div className="text-center">
               <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-red-300 to-red-600 font-gothic tracking-wider uppercase">
                 {t("menu.title")}
               </h1>
-              <p className="text-red-200/60 text-sm mt-2 tracking-[0.3em] uppercase font-gothic">
-                Bloody Rubynts Saga
-              </p>
+              <p className="text-red-200/60 text-sm mt-2 tracking-[0.3em] uppercase font-gothic">Bloody Rubynts Saga</p>
             </div>
 
             <button
@@ -432,6 +463,26 @@ const MainGame = () => {
                 ))}
             </div>
 
+            {/* ✅ 3★ esetén azonnali továbblépés (nem kell 0 move-ig várni) */}
+            {canGoNextNow && (
+              <button
+                type="button"
+                onClick={() => {
+                  playSound("click");
+                  setEndOpen(false);
+
+                  const next = clampLevel(level + 1);
+                  setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
+                  setCurrentLevel(next);
+                  startNewGame(next);
+                  setScreen("game");
+                }}
+                className="px-8 py-3 bg-gradient-to-r from-red-900 to-red-700 hover:from-red-800 hover:to-red-600 text-white rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 text-base font-gothic border border-red-500/30"
+              >
+                Következő pálya (3★)
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -446,10 +497,9 @@ const MainGame = () => {
         )}
       </div>
 
-                {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
-                {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
-     
-     
+      {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
+      {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
+
       {/* ✅ TOPBAR: mindig fent, de értelmes értékekkel */}
       <TopBar
         onBack={

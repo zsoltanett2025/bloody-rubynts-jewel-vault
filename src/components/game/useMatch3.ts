@@ -81,9 +81,7 @@ const generateRandomGem = (x: number, y: number, activeTypes: GemType[], chanceF
 };
 
 const buildGrid = (size: number, mask: boolean[][], gems: Gem[]) => {
-  const grid: (Gem | null)[][] = Array.from({ length: size }, () =>
-    Array.from({ length: size }, () => null)
-  );
+  const grid: (Gem | null)[][] = Array.from({ length: size }, () => Array.from({ length: size }, () => null));
   for (const g of gems) {
     if (g.x >= 0 && g.x < size && g.y >= 0 && g.y < size) {
       if (mask[g.y]?.[g.x]) grid[g.y][g.x] = g;
@@ -241,13 +239,7 @@ function hasAnyMove(gems: Gem[], size: number, mask: boolean[][]) {
   return countPossibleMoves(gems, size, mask) > 0;
 }
 
-function rerollPlayable(
-  size: number,
-  mask: boolean[][],
-  pool: GemType[],
-  minMoves: number,
-  maxTries = 420
-): Gem[] {
+function rerollPlayable(size: number, mask: boolean[][], pool: GemType[], minMoves: number, maxTries = 420): Gem[] {
   const activePositions: Array<{ x: number; y: number }> = [];
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++)
@@ -464,7 +456,10 @@ function analyzeMatchesAndPower(
   if (bestStripe) {
     const g = byKey[bestStripe.k];
     if (g && g.type !== "chest") {
-      return { matches, createPower: { keepId: g.id, power: bestStripe.orient === "h" ? "stripe_h" : "stripe_v" } };
+      return {
+        matches,
+        createPower: { keepId: g.id, power: bestStripe.orient === "h" ? "stripe_h" : "stripe_v" },
+      };
     }
   }
 
@@ -517,10 +512,14 @@ export const useMatch3 = () => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
 
+  // ✅ Stars ref (mindig friss, UI-nak hasznos)
+  const starsRef = useRef(0);
+  useEffect(() => {
+    starsRef.current = stars;
+  }, [stars]);
+
   const [boardSize, setBoardSize] = useState<number>(8);
-  const [mask, setMask] = useState<boolean[][]>(() =>
-    Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true))
-  );
+  const [mask, setMask] = useState<boolean[][]>(() => Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true)));
 
   const boardSizeRef = useRef(boardSize);
   const maskRef = useRef(mask);
@@ -777,9 +776,22 @@ export const useMatch3 = () => {
         setTimeLimitSec(0);
         setTimeLeftSec(0);
 
-        const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
-        const rnd = Math.floor(Math.random() * 5) - 2;
-        setMoves(clamp(base + rnd, 18, 34));
+        // ✅ korai pályák gyorsabbak (nem kell 30+ move)
+        const EARLY_MOVES: Record<number, number> = {
+          1: 12,
+          2: 14,
+          3: 16,
+          4: 18,
+          5: 20,
+        };
+
+        if (EARLY_MOVES[newLevel]) {
+          setMoves(EARLY_MOVES[newLevel]);
+        } else {
+          const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
+          const rnd = Math.floor(Math.random() * 5) - 2;
+          setMoves(clamp(base + rnd, 18, 34));
+        }
       }
 
       setTargetScore(500 + newLevel * 250);
@@ -1062,6 +1074,11 @@ export const useMatch3 = () => {
     // "won" nincs többé a hookban -> App úgyis score/moves/time alapján dönt
     won: false,
     stars,
+
+    // ✅ új jelzések az App/UI-nak
+    passed: stars >= 1,
+    canGoNext: stars >= 3,
+
     gems,
     score,
     targetScore,
@@ -1086,5 +1103,8 @@ export const useMatch3 = () => {
 
     activeGemCount: getGemCountForLevel(level),
     boardSize,
+
+    // (nem kötelező, de hasznos debug/UI esetén)
+    starsRef,
   };
 };
