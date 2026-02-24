@@ -118,151 +118,161 @@ export function TopBar(props: {
   }, [mode, timeLeftSec, timeLimitSec]);
 
   return (
-       <div className="fixed top-0 left-0 right-0 z-[9999]">
-       <div className="w-full px-1 py-0.5 md:px-4 md:py-3 bg-black/45 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-4xl mx-auto flex flex-nowrap items-center gap-1 md:gap-3 overflow-x-auto scrollbar-none">
-          {/* Bal gombok */}
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <button
-                type="button"
-                onClick={onBack}
-                className="px-2 py-1 md:px-3 md:py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
-                title="Vissza"
-              >
-                ←
-              </button>
-            )}
-            {onHome && (
-              <button
-                type="button"
-                onClick={onHome}
-                className="px-2 py-1 md:px-3 md:py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
-                title="Home"
-              >
-                ⌂
-              </button>
-            )}
+  <div className="fixed top-0 left-0 right-0 z-[9999]">
+    <div className="w-full h-14 sm:h-auto px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
+      <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+
+        {/* BAL: Back + Home */}
+        <div className="flex items-center gap-2 shrink-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
+              title="Vissza"
+            >
+              ←
+            </button>
+          )}
+          {onHome && (
+            <button
+              type="button"
+              onClick={onHome}
+              className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
+              title="Home"
+            >
+              ⌂
+            </button>
+          )}
+        </div>
+
+        {/* KÖZÉP: Level + Moves + (Timed compact) */}
+        <div className="flex items-center gap-3 text-white/90 whitespace-nowrap overflow-hidden">
+          <div className="font-gothic text-base sm:text-lg font-bold leading-none">
+            L{level}
           </div>
 
-          {/* Középső: Level + Moves + (Timed) */}
-          <div className="flex items-center gap-3 min-w-[210px]">
-            <div className="text-white/90 font-gothic">
-              <div className="text-xs text-white/60">level</div>
-              <div className="text-lg font-bold leading-none">{level}.</div>
-            </div>
-
-            <div className="text-white/90">
-              <div className="text-xs text-white/60">moves</div>
-              <div className="text-lg font-bold leading-none">{moves}</div>
-            </div>
-
-            {mode === "timed" && (
-              <div className="text-white/90 min-w-[74px]">
-                <div className="text-xs text-white/60">time</div>
-                <div className="text-lg font-bold leading-none tabular-nums">{timeText}</div>
-                <div className="mt-1 h-1 rounded bg-white/10 overflow-hidden">
-                  <div className="h-full bg-red-600/80" style={{ width: `${timePct}%` }} />
-                </div>
-              </div>
-            )}
+          <div className="text-sm sm:text-base font-semibold leading-none">
+            {moves} moves
           </div>
 
-          {/* Score + progress */}
-          <div className="w-full md:flex-1 order-3 md:order-none">
-            <div className="flex items-end justify-between gap-3">
-              <div className="text-white/90">
-                <div className="text-xs text-white/60">score</div>
-                <div className="text-base font-bold leading-none tabular-nums">
-                  {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
-                </div>
-                {typeof activeGemCount === "number" && (
-                  <div className="text-[10px] text-white/35 mt-1 font-sans">
-                    Active gems: {activeGemCount}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1 text-lg select-none">
-                <span className={[starsEarned >= 1 ? "text-yellow-300" : "text-white/25", pop1 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
-                <span className={[starsEarned >= 2 ? "text-yellow-300" : "text-white/25", pop2 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
-                <span className={[starsEarned >= 3 ? "text-yellow-300" : "text-white/25", pop3 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
-              </div>
-            </div>
-
-            <div className="mt-2 relative">
-              <div className="h-3 rounded-full bg-white/10 border border-white/10 overflow-hidden">
-                <div className="h-full rounded-full bg-red-600/80" style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }} />
-              </div>
-              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
-              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
-
-             <div className="mt-1 hidden md:flex justify-between text-[10px] text-white/45 tabular-nums">
-               <span>1★ {star1}</span>
-               <span>2★ {star2}</span>
-               <span>3★ {star3}</span>
-             </div>
-            </div>
-          </div>
-
-          {/* Jobb oldal: Lives + Shuffle + Wallet */}
-          <div className="flex items-center gap-3">
+          {mode === "timed" && (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                {Array.from({ length: maxLives }).map((_, i) => {
-                  const filled = i < livesClamped;
-                  return (
-                    <img
-                      key={i}
-                      src={heartSrc}
-                      alt="life"
-                      className={["w-5 h-5", filled ? "opacity-100" : "opacity-30"].join(" ")}
-                      draggable={false}
-                    />
-                  );
-                })}
+              <span className="text-sm tabular-nums">{timeText}</span>
+              <div className="h-1.5 w-14 sm:w-24 rounded bg-white/15 overflow-hidden">
+                <div className="h-full bg-red-600/80" style={{ width: `${timePct}%` }} />
               </div>
-
-              {onShuffle && shuffleUses > 0 && (
-                <button
-                  type="button"
-                  onClick={onShuffle}
-                  className="ml-1 w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition relative"
-                  title="Shuffle"
-                >
-                  <img
-                    src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
-                    alt="shuffle"
-                    draggable={false}
-                    className="w-full h-full object-contain pointer-events-none"
-                  />
-                  <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10">
-                    {shuffleUses}
-                  </span>
-                </button>
-              )}
             </div>
+          )}
+        </div>
 
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:block text-right">
-                <div className="text-xs text-white/60">Rubynt</div>
-                <div className="text-sm font-bold tabular-nums">{rubyntBalance}</div>
+        {/* JOBB: Lives + Shuffle + Wallet (compact) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Lives */}
+          <div className="flex items-center gap-1">
+            {Array.from({ length: maxLives }).map((_, i) => {
+              const filled = i < livesClamped;
+              return (
+                <img
+                  key={i}
+                  src={heartSrc}
+                  alt="life"
+                  className={["w-4 h-4 sm:w-5 sm:h-5", filled ? "opacity-100" : "opacity-30"].join(" ")}
+                  draggable={false}
+                />
+              );
+            })}
+          </div>
+
+          {/* Shuffle */}
+          {onShuffle && shuffleUses > 0 && (
+            <button
+              type="button"
+              onClick={onShuffle}
+              className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 active:scale-95 transition relative"
+              title="Shuffle"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
+                alt="shuffle"
+                draggable={false}
+                className="w-full h-full object-contain pointer-events-none"
+              />
+              <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10">
+                {shuffleUses}
+              </span>
+            </button>
+          )}
+
+          {/* Wallet */}
+          {onOpenWallet && (
+            <button
+              type="button"
+              onClick={onOpenWallet}
+              className="h-9 w-11 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
+              title="Wallet"
+            >
+              <Wallet />
+            </button>
+         )}
+       {/* Rubynt balance (csak desktop) */}
+       {typeof rubyntBalance !== "undefined" && (
+       <div className="hidden sm:block mt-1 text-[11px] text-white/70 tabular-nums">
+       {rubyntBalance}
+      </div>
+    )}
+       
+        </div>
+      </div>
+
+      {/* 2. SOR CSAK DESKTOPON: Score + Stars + Progress */}
+      <div className="hidden sm:block max-w-4xl mx-auto mt-2">
+        <div className="flex items-end justify-between gap-3">
+          <div className="text-white/90">
+            <div className="text-xs text-white/60">score</div>
+            <div className="text-base font-bold leading-none tabular-nums">
+              {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
+            </div>
+            {typeof activeGemCount === "number" && (
+              <div className="text-[10px] text-white/35 mt-1 font-sans">
+                Active gems: {activeGemCount}
               </div>
+            )}
+          </div>
 
-              {onOpenWallet && (
-                <button
-                  type="button"
-                  onClick={onOpenWallet}
-                  className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
-                  title="Wallet"
-                >
-                  <Wallet></Wallet>
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-1 text-lg select-none">
+            <span className={[starsEarned >= 1 ? "text-yellow-300" : "text-white/25", pop1 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
+            <span className={[starsEarned >= 2 ? "text-yellow-300" : "text-white/25", pop2 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
+            <span className={[starsEarned >= 3 ? "text-yellow-300" : "text-white/25", pop3 ? "scale-125" : "scale-100", "inline-block transition-transform duration-200 ease-out"].join(" ")}>★</span>
+          </div>
+        </div>
+
+        <div className="mt-2 relative">
+          <div className="h-3 rounded-full bg-white/10 border border-white/10 overflow-hidden">
+            <div className="h-full rounded-full bg-red-600/80" style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }} />
+          </div>
+          <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
+          <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
+
+          <div className="mt-1 flex justify-between text-[10px] text-white/45 tabular-nums">
+            <span>1★ {star1}</span>
+            <span>2★ {star2}</span>
+            <span>3★ {star3}</span>
           </div>
         </div>
       </div>
+
+      {/* MOBILON (SM ALATT) KOMPAKT SCORE-CSÍK A HUD ALATT */}
+      <div className="sm:hidden px-1 mt-1">
+        <div className="flex items-center justify-between text-[11px] text-white/80 tabular-nums">
+          <span>{score}/{targetScore}</span>
+          <span className="text-white/55">★{starsEarned}/3</span>
+        </div>
+        <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-red-600/80" style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }} />
+        </div>
+      </div>
     </div>
+  </div>
   );
 }
