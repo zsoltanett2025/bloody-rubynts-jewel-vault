@@ -511,7 +511,6 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
 export const useMatch3 = () => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
-
   // ✅ Stars ref (mindig friss, UI-nak hasznos)
   const starsRef = useRef(0);
   useEffect(() => {
@@ -543,6 +542,11 @@ export const useMatch3 = () => {
   }, [score]);
 
   const [moves, setMoves] = useState(20);
+  const movesRef = useRef(20);
+  useEffect(() => {
+    movesRef.current = moves;
+  }, [moves]);
+
   const [targetScore, setTargetScore] = useState(1000);
   const [level, setLevel] = useState(1);
 
@@ -561,6 +565,10 @@ export const useMatch3 = () => {
   const [foundChests, setFoundChests] = useState(0);
 
   const [shuffleUses, setShuffleUses] = useState(1);
+  const shuffleUsesRef = useRef(1);
+  useEffect(() => {
+    shuffleUsesRef.current = shuffleUses;
+  }, [shuffleUses]);
 
   const [progress, setProgress] = useState<GoalProgress>({ score: 0, chests: 0, cleared: {} });
   const progressRef = useRef<GoalProgress>({ score: 0, chests: 0, cleared: {} });
@@ -763,36 +771,42 @@ export const useMatch3 = () => {
       const pool = getActiveGemTypesForLevel(newLevel, cfg.gemCount);
       setActiveTypes(pool);
 
-      const shardCfg = getShardConfig(newLevel);
+    const shardCfg = getShardConfig(newLevel);
 
-      if (shardCfg) {
-        setMode("timed");
-        setTimeLimitSec(shardCfg.timeLimitSec);
-        setTimeLeftSec(shardCfg.timeLimitSec);
-        const jitter = Math.random() < 0.5 ? 0 : 1;
-        setMoves(shardCfg.moveLimit + jitter);
-      } else {
-        setMode("moves");
-        setTimeLimitSec(0);
-        setTimeLeftSec(0);
+// ✅ MOVES: egy helyen számoljuk ki
+let nextMoves = 0;
 
-        // ✅ korai pályák gyorsabbak (nem kell 30+ move)
-        const EARLY_MOVES: Record<number, number> = {
-          1: 12,
-          2: 14,
-          3: 16,
-          4: 18,
-          5: 20,
-        };
+if (shardCfg) {
+  setMode("timed");
+  setTimeLimitSec(shardCfg.timeLimitSec);
+  setTimeLeftSec(shardCfg.timeLimitSec);
+  const jitter = Math.random() < 0.5 ? 0 : 1;
+  nextMoves = shardCfg.moveLimit + jitter;
+} else {
+  setMode("moves");
+  setTimeLimitSec(0);
+  setTimeLeftSec(0);
 
-        if (EARLY_MOVES[newLevel]) {
-          setMoves(EARLY_MOVES[newLevel]);
-        } else {
-          const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
-          const rnd = Math.floor(Math.random() * 5) - 2;
-          setMoves(clamp(base + rnd, 18, 34));
-        }
-      }
+  // ✅ korai pályák gyorsabbak
+  const EARLY_MOVES: Record<number, number> = {
+    1: 12,
+    2: 14,
+    3: 16,
+    4: 18,
+    5: 20,
+  };
+
+  if (EARLY_MOVES[newLevel]) {
+    nextMoves = EARLY_MOVES[newLevel];
+  } else {
+    const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
+    const rnd = Math.floor(Math.random() * 5) - 2;
+    nextMoves = clamp(base + rnd, 18, 34);
+  }
+}
+
+setMoves(nextMoves);
+movesRef.current = nextMoves; // ✅ ehhez kell movesRef
 
       setTargetScore(500 + newLevel * 250);
 
