@@ -118,10 +118,6 @@ const MainGame = () => {
 
   const [currentLevel, setCurrentLevel] = useState(() => {
     const raw = localStorage.getItem(LS_CURRENT);
-   useEffect(() => {
-  console.log("[HUD]", { screen, level, moves, score, targetScore });
-}, [screen, level, moves, score, targetScore]);
-    
     return clampLevel(Number(raw ?? 1));
   });
 
@@ -129,6 +125,11 @@ const MainGame = () => {
     const raw = localStorage.getItem(LS_UNLOCKED);
     return clampLevel(Number(raw ?? 1));
   });
+
+  // ✅ debug: HUD értékek (NEM a useState-ben!)
+  useEffect(() => {
+    console.log("[HUD]", { screen, level, moves, score, targetScore });
+  }, [screen, level, moves, score, targetScore]);
 
   // ✅ csak egyszer reportoljuk a PASS-t egy adott szinten
   const [reportedPassLevel, setReportedPassLevel] = useState<number>(0);
@@ -226,27 +227,23 @@ const MainGame = () => {
 
     setReportedPassLevel(level);
 
-    // unlock next level
     const next = clampLevel(level + 1);
     setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
 
-    // game state / shard log
-   try {
-  completeLevel?.(level, score, starsNow);
+    try {
+      completeLevel?.(level, score, starsNow);
 
-const gtag = (window as any).gtag;
-if (typeof gtag === "function") {
-  gtag("event", "level_completed", {
-    level,
-    stars: starsNow,
-    score
-  });
-}
+      const gtag = (window as any).gtag;
+      if (typeof gtag === "function") {
+        gtag("event", "level_completed", {
+          level,
+          stars: starsNow,
+          score,
+        });
+      }
 
-
-
-  if (isShardLevel(level)) markShardFound(level);
-} catch {}
+      if (isShardLevel(level)) markShardFound(level);
+    } catch {}
   }, [screen, passedNow, reportedPassLevel, level, completeLevel, score, starsNow]);
 
   // ✅ END MODAL (csak akkor, ha elfogy a lépés / lejár az idő)
@@ -259,7 +256,6 @@ if (typeof gtag === "function") {
 
     if (!timedOut && !noMoves) return;
 
-    // itt is a live stars szerint döntünk
     const passed = starsNow >= 1;
 
     setEndWon(passed);
@@ -267,8 +263,6 @@ if (typeof gtag === "function") {
     setEndOpen(true);
 
     playSound("click");
-
-    // completeLevel PASS-ot már 1★-nál elintéztük, itt nem kell még egyszer
   }, [screen, endOpen, mode, timeLeftSec, moves, starsNow]);
 
   const tileSize = useMemo(() => {
@@ -278,7 +272,6 @@ if (typeof gtag === "function") {
 
   const boardPx = tileSize * (boardSize || 8);
 
-  // ✅ háttér: map 20-as blokkonként, game 20-as blokkonként
   const desiredBg = useMemo(() => {
     const fallback = GAME_ASSETS.menuBackground;
 
@@ -315,7 +308,7 @@ if (typeof gtag === "function") {
 
   const story = getStoryForLevel(level);
 
-  // ✅ TopBar-hoz UI értékek: menu/map alatt ne a game state menjen
+  // ✅ TopBar-hoz: mindig valós értékek (NEM 0-zunk)
   const uiLevel = level;
   const uiScore = score;
   const uiTarget = targetScore;
@@ -421,41 +414,41 @@ if (typeof gtag === "function") {
           </div>
         )}
 
-{screen === "map" && (
-  <LevelMap
-    totalLevels={TOTAL_LEVELS}
-    currentLevel={currentLevel}
-    unlockedLevel={unlockedLevel}
-    onSelectLevel={(l: number) => {
-      const L = typeof lives === "number" ? lives : 3;
+        {screen === "map" && (
+          <LevelMap
+            totalLevels={TOTAL_LEVELS}
+            currentLevel={currentLevel}
+            unlockedLevel={unlockedLevel}
+            onSelectLevel={(l: number) => {
+              const L = typeof lives === "number" ? lives : 3;
 
-      if (L <= 0) {
-        playSound("click");
-        if (isTrial) setTrialMsg("Trial: Shop coming soon.");
-        else setShowShop(true);
-        return;
-      }
+              if (L <= 0) {
+                playSound("click");
+                if (isTrial) setTrialMsg("Trial: Shop coming soon.");
+                else setShowShop(true);
+                return;
+              }
 
-      playSound("click");
-      setEndOpen(false);
-      setEndWon(false);
-      setEndStars(0);
+              playSound("click");
+              setEndOpen(false);
+              setEndWon(false);
+              setEndStars(0);
 
-      const picked = clampLevel(l);
-      setCurrentLevel(picked);
-      startNewGame(picked);
+              const picked = clampLevel(l);
+              setCurrentLevel(picked);
+              startNewGame(picked);
 
-      const gtag = (window as any).gtag;
-      if (typeof gtag === "function") {
-        gtag("event", "level_started", {
-          level: picked,
-        });
-      }
+              const gtag = (window as any).gtag;
+              if (typeof gtag === "function") {
+                gtag("event", "level_started", {
+                  level: picked,
+                });
+              }
 
-      setScreen("game");
-    }}
-  />
-)}
+              setScreen("game");
+            }}
+          />
+        )}
 
         {screen === "game" && (
           <div className="flex flex-col items-center gap-4 w-full pt-20 md:pt-24">
@@ -487,7 +480,7 @@ if (typeof gtag === "function") {
                 ))}
             </div>
 
-            {/* ✅ 3★ esetén azonnali továbblépés (nem kell 0 move-ig várni) */}
+            {/* ✅ 3★ esetén azonnali továbblépés */}
             {canGoNextNow && (
               <button
                 type="button"
@@ -521,11 +514,12 @@ if (typeof gtag === "function") {
         )}
       </div>
 
-        {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
-        {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
+      {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
+      {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
 
-        {/* ✅ TOPBAR: mindig fent, de értelmes értékekkel */}
-       <TopBar
+      {/* ✅ TOPBAR */}
+      <TopBar
+        isTrial={isTrial}
         onBack={
           screen === "game"
             ? () => {
