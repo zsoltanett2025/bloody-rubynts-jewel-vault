@@ -217,7 +217,7 @@ export function TopBar(props: {
          )}
        {/* Rubynt balance (csak desktop) */}
        {typeof rubyntBalance !== "undefined" && (
-       <div className="hidden sm:block mt-1 text-[11px] text-white/70 tabular-nums">
+       <div className="hidden md:block mt-1 text-[11px] text-white/70 tabular-nums">
        {rubyntBalance}
       </div>
     )}
@@ -226,7 +226,7 @@ export function TopBar(props: {
       </div>
 
       {/* 2. SOR CSAK DESKTOPON: Score + Stars + Progress */}
-      <div className="hidden sm:block max-w-4xl mx-auto mt-2">
+      <div className="hidden md:block max-w-4xl mx-auto mt-2">
         <div className="flex items-end justify-between gap-3">
           <div className="text-white/90">
             <div className="text-xs text-white/60">score</div>
