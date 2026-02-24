@@ -239,7 +239,7 @@ if (typeof gtag === "function") {
   });
 }
 
-completeLevel?.(level, score, starsNow);
+
 
   if (isShardLevel(level)) markShardFound(level);
 } catch {}
