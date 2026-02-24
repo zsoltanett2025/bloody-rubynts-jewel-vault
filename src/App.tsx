@@ -227,10 +227,19 @@ const MainGame = () => {
     setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
 
     // game state / shard log
-    try {
-      completeLevel?.(level, score, starsNow);
-      if (isShardLevel(level)) markShardFound(level);
-    } catch {}
+   try {
+  completeLevel?.(level, score, starsNow);
+
+  const gtag = (window as any).gtag;
+  if (typeof gtag === "function") {
+    gtag("event", "level_completed", {
+      level: level,
+      stars: starsNow,
+    });
+  }
+
+  if (isShardLevel(level)) markShardFound(level);
+} catch {}
   }, [screen, passedNow, reportedPassLevel, level, completeLevel, score, starsNow]);
 
   // ✅ END MODAL (csak akkor, ha elfogy a lépés / lejár az idő)
@@ -405,33 +414,41 @@ const MainGame = () => {
           </div>
         )}
 
-        {screen === "map" && (
-          <LevelMap
-            totalLevels={TOTAL_LEVELS}
-            currentLevel={currentLevel}
-            unlockedLevel={unlockedLevel}
-            onSelectLevel={(l: number) => {
-              const L = typeof lives === "number" ? lives : 3;
+{screen === "map" && (
+  <LevelMap
+    totalLevels={TOTAL_LEVELS}
+    currentLevel={currentLevel}
+    unlockedLevel={unlockedLevel}
+    onSelectLevel={(l: number) => {
+      const L = typeof lives === "number" ? lives : 3;
 
-              if (L <= 0) {
-                playSound("click");
-                if (isTrial) setTrialMsg("Trial: Shop coming soon.");
-                else setShowShop(true);
-                return;
-              }
+      if (L <= 0) {
+        playSound("click");
+        if (isTrial) setTrialMsg("Trial: Shop coming soon.");
+        else setShowShop(true);
+        return;
+      }
 
-              playSound("click");
-              setEndOpen(false);
-              setEndWon(false);
-              setEndStars(0);
+      playSound("click");
+      setEndOpen(false);
+      setEndWon(false);
+      setEndStars(0);
 
-              const picked = clampLevel(l);
-              setCurrentLevel(picked);
-              startNewGame(picked);
-              setScreen("game");
-            }}
-          />
-        )}
+      const picked = clampLevel(l);
+      setCurrentLevel(picked);
+      startNewGame(picked);
+
+      const gtag = (window as any).gtag;
+      if (typeof gtag === "function") {
+        gtag("event", "level_started", {
+          level: picked,
+        });
+      }
+
+      setScreen("game");
+    }}
+  />
+)}
 
         {screen === "game" && (
           <div className="flex flex-col items-center gap-4 w-full pt-20 md:pt-24">
