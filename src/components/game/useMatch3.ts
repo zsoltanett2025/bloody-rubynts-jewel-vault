@@ -511,6 +511,7 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
 export const useMatch3 = () => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
+
   // ✅ Stars ref (mindig friss, UI-nak hasznos)
   const starsRef = useRef(0);
   useEffect(() => {
@@ -549,6 +550,10 @@ export const useMatch3 = () => {
 
   const [targetScore, setTargetScore] = useState(1000);
   const [level, setLevel] = useState(1);
+  const levelRef = useRef(1);
+  useEffect(() => {
+    levelRef.current = level;
+  }, [level]);
 
   const [mode, setMode] = useState<"moves" | "timed">("moves");
   const [timeLimitSec, setTimeLimitSec] = useState<number>(0);
@@ -587,6 +592,25 @@ export const useMatch3 = () => {
     } catch {}
   }, []);
 
+  // ✅ mindig state + ref együtt (HUD ne “0”-zzon)
+  const setMovesSynced = useCallback((next: number | ((m: number) => number)) => {
+    setMoves((prev) => {
+      const value = typeof next === "function" ? (next as (m: number) => number)(prev) : next;
+      const clamped = Math.max(0, Math.floor(value));
+      movesRef.current = clamped;
+      return clamped;
+    });
+  }, []);
+
+  const setScoreSynced = useCallback((next: number | ((s: number) => number)) => {
+    setScore((prev) => {
+      const value = typeof next === "function" ? (next as (s: number) => number)(prev) : next;
+      const v = Math.max(0, Math.floor(value));
+      scoreRef.current = v;
+      return v;
+    });
+  }, []);
+
   const triggerMatchFx = useCallback((ids: string[], pops: ScorePop[]) => {
     setFlashIds(ids);
 
@@ -602,19 +626,18 @@ export const useMatch3 = () => {
     }
   }, []);
 
-  const addScore = useCallback((add: number) => {
-    setScore((prev) => {
-      const next = prev + add;
-      scoreRef.current = next;
-      return next;
-    });
+  const addScore = useCallback(
+    (add: number) => {
+      setScoreSynced((prev) => prev + add);
 
-    setProgress((p) => {
-      const next: GoalProgress = { ...p, score: p.score + add };
-      progressRef.current = next;
-      return next;
-    });
-  }, []);
+      setProgress((p) => {
+        const next: GoalProgress = { ...p, score: p.score + add };
+        progressRef.current = next;
+        return next;
+      });
+    },
+    [setScoreSynced]
+  );
 
   const countCleared = useCallback((clearedGems: Gem[]): void => {
     const clearedDelta: Record<string, number> = {};
@@ -754,64 +777,66 @@ export const useMatch3 = () => {
 
   const startNewGame = useCallback(
     (newLevel: number) => {
-      setLevel(newLevel);
+      const lvl = Math.max(1, Math.floor(Number(newLevel) || 1));
+
+      setLevel(lvl);
+      levelRef.current = lvl;
+
       setGameOver(false);
       setStars(0);
       setShuffleUses(1);
+      shuffleUsesRef.current = 1;
 
       setFlashIds([]);
       setScorePops([]);
 
-      const cfg = getLevelConfig(newLevel, GEM_TYPES_ALL.length);
+      const cfg = getLevelConfig(lvl, GEM_TYPES_ALL.length);
       setBoardSize(cfg.boardSize);
       setMask(cfg.mask);
       boardSizeRef.current = cfg.boardSize;
       maskRef.current = cfg.mask;
 
-      const pool = getActiveGemTypesForLevel(newLevel, cfg.gemCount);
+      const pool = getActiveGemTypesForLevel(lvl, cfg.gemCount);
       setActiveTypes(pool);
 
-    const shardCfg = getShardConfig(newLevel);
+      const shardCfg = getShardConfig(lvl);
 
-// ✅ MOVES: egy helyen számoljuk ki
-let nextMoves = 0;
+      // ✅ MOVES: egy helyen számoljuk ki + state+ref sync
+      let nextMoves = 0;
 
-if (shardCfg) {
-  setMode("timed");
-  setTimeLimitSec(shardCfg.timeLimitSec);
-  setTimeLeftSec(shardCfg.timeLimitSec);
-  const jitter = Math.random() < 0.5 ? 0 : 1;
-  nextMoves = shardCfg.moveLimit + jitter;
-} else {
-  setMode("moves");
-  setTimeLimitSec(0);
-  setTimeLeftSec(0);
+      if (shardCfg) {
+        setMode("timed");
+        setTimeLimitSec(shardCfg.timeLimitSec);
+        setTimeLeftSec(shardCfg.timeLimitSec);
+        const jitter = Math.random() < 0.5 ? 0 : 1;
+        nextMoves = shardCfg.moveLimit + jitter;
+      } else {
+        setMode("moves");
+        setTimeLimitSec(0);
+        setTimeLeftSec(0);
 
-  // ✅ korai pályák gyorsabbak
-  const EARLY_MOVES: Record<number, number> = {
-    1: 12,
-    2: 14,
-    3: 16,
-    4: 18,
-    5: 20,
-  };
+        const EARLY_MOVES: Record<number, number> = {
+          1: 12,
+          2: 14,
+          3: 16,
+          4: 18,
+          5: 20,
+        };
 
-  if (EARLY_MOVES[newLevel]) {
-    nextMoves = EARLY_MOVES[newLevel];
-  } else {
-    const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
-    const rnd = Math.floor(Math.random() * 5) - 2;
-    nextMoves = clamp(base + rnd, 18, 34);
-  }
-}
+        if (EARLY_MOVES[lvl]) {
+          nextMoves = EARLY_MOVES[lvl];
+        } else {
+          const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
+          const rnd = Math.floor(Math.random() * 5) - 2;
+          nextMoves = clamp(base + rnd, 18, 34);
+        }
+      }
 
-setMoves(nextMoves);
-movesRef.current = nextMoves; // ✅ ehhez kell movesRef
+      setMovesSynced(nextMoves);
 
-      setTargetScore(500 + newLevel * 250);
+      setTargetScore(500 + lvl * 250);
 
-      setScore(0);
-      scoreRef.current = 0;
+      setScoreSynced(0);
 
       setFoundChests(0);
       setSelectedGem(null);
@@ -820,9 +845,9 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
       setProgress(resetProgress);
       progressRef.current = resetProgress;
 
-      const minMoves = newLevel >= 11 ? 6 : 1;
+      const minMoves = lvl >= 11 ? 6 : 1;
       const fresh = rerollPlayable(cfg.boardSize, cfg.mask, pool, minMoves, 700);
-      const clean = ensurePlayable(fresh, newLevel);
+      const clean = ensurePlayable(fresh, lvl);
       setGems(clean);
 
       window.setTimeout(() => {
@@ -833,21 +858,21 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
         const m = maskRef.current;
 
         if (findMatches(clean, size, m).length > 0) {
-          processMatches(clean, newLevel);
+          processMatches(clean, lvl);
         }
       }, 0);
     },
-    [processMatches, ensurePlayable]
+    [processMatches, ensurePlayable, setMovesSynced, setScoreSynced]
   );
 
   const shuffleBoard = useCallback(async () => {
-    if (shuffleUses <= 0 || isProcessing) return;
+    if (shuffleUsesRef.current <= 0 || isProcessing) return;
 
     try {
       const size = boardSizeRef.current;
       const m = maskRef.current;
 
-      const minMoves = level >= 11 ? 6 : 1;
+      const minMoves = levelRef.current >= 11 ? 6 : 1;
       const current = gemsRef.current.map((g) => ({ ...g }));
       const shuffled = shuffleToPlayable(current, size, m, activeTypesRef.current, minMoves, 260);
 
@@ -856,15 +881,16 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
       setGems(shuffled);
 
       await wait(220);
-      await processMatches(shuffled, level);
+      await processMatches(shuffled, levelRef.current);
     } catch {}
-  }, [shuffleUses, isProcessing, level, processMatches]);
+  }, [isProcessing, processMatches]);
 
   const selectGem = useCallback(
     async (gem: Gem) => {
-      if (isProcessing || moves <= 0) return;
+      if (isProcessing) return;
+      if (movesRef.current <= 0) return;
       if (mode === "timed" && timeLeftSec <= 0) return;
-      if (gameOver) return; // ✅ NEM nézzük a stars-t/“won”-t
+      if (gameOver) return;
 
       const size = boardSizeRef.current;
       const m = maskRef.current;
@@ -885,7 +911,7 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
         addScore(500);
 
         const afterClear = current.filter((g) => g.id !== gem.id);
-        const cfg = getLevelConfig(level, GEM_TYPES_ALL.length);
+        const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
 
         let refilled = applyGravityAndRefill(
           afterClear,
@@ -894,12 +920,12 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
           m,
           cfg.chestChanceBoss,
           cfg.chestChanceNormal,
-          level
+          levelRef.current
         );
 
         setGems(refilled);
         await wait(CLEAR_MS);
-        await processMatches(refilled, level);
+        await processMatches(refilled, levelRef.current);
 
         setSelectedGem(null);
         return;
@@ -949,14 +975,14 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
           setIsProcessing(false);
 
           if (!hasAnyMove(original, size, m)) {
-            const fixed = ensurePlayable(original, level);
+            const fixed = ensurePlayable(original, levelRef.current);
             setGems(fixed);
           }
           return;
         }
 
         safePlay("click");
-        setMoves((mm) => Math.max(0, mm - 1));
+        setMovesSynced((mm) => Math.max(0, mm - 1));
         setSelectedGem(null);
 
         const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
@@ -987,7 +1013,7 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
 
         let after = swapped.filter((gg) => !clearIds.has(gg.id));
 
-        const cfg = getLevelConfig(level, GEM_TYPES_ALL.length);
+        const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
         after = applyGravityAndRefill(
           after,
           activeTypesRef.current,
@@ -995,23 +1021,23 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
           m,
           cfg.chestChanceBoss,
           cfg.chestChanceNormal,
-          level
+          levelRef.current
         );
 
         setGems(after);
         await wait(GRAVITY_MS);
-        await processMatches(after, level);
+        await processMatches(after, levelRef.current);
 
         setIsProcessing(false);
         return;
       }
 
       safePlay("click");
-      setMoves((mm) => Math.max(0, mm - 1));
+      setMovesSynced((mm) => Math.max(0, mm - 1));
       setSelectedGem(null);
 
       addScore(5);
-      await processMatches(swapped, level);
+      await processMatches(swapped, levelRef.current);
     },
     [
       addScore,
@@ -1023,10 +1049,9 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
       timeLeftSec,
       gameOver,
       isProcessing,
-      moves,
-      level,
       ensurePlayable,
       triggerMatchFx,
+      setMovesSynced,
     ]
   );
 
@@ -1061,18 +1086,18 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
       const dead = possible <= 0;
 
       const last = lastWdRef.current;
-      const changed = !last || last.level !== level || last.possible !== possible || last.dead !== dead;
+      const changed = !last || last.level !== levelRef.current || last.possible !== possible || last.dead !== dead;
 
       if (dead || changed) {
         const hint = findFirstMove(g, size, m);
-        console.log("[WATCHDOG]", { level, size, possibleMoves: possible, dead, gemsLen: g.length, hint });
-        lastWdRef.current = { level, possible, dead };
+        console.log("[WATCHDOG]", { level: levelRef.current, size, possibleMoves: possible, dead, gemsLen: g.length, hint });
+        lastWdRef.current = { level: levelRef.current, possible, dead };
       }
 
       if (dead) {
         deadFixingRef.current = true;
         try {
-          const fixed = ensurePlayable(g, level);
+          const fixed = ensurePlayable(g, levelRef.current);
           setGems(fixed);
         } finally {
           deadFixingRef.current = false;
@@ -1081,11 +1106,10 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
     }, 450);
 
     return () => window.clearInterval(id);
-  }, [ensurePlayable, isProcessing, gameOver, level]);
+  }, [ensurePlayable, isProcessing, gameOver]);
 
   return {
     gameOver,
-    // "won" nincs többé a hookban -> App úgyis score/moves/time alapján dönt
     won: false,
     stars,
 
@@ -1118,7 +1142,6 @@ movesRef.current = nextMoves; // ✅ ehhez kell movesRef
     activeGemCount: getGemCountForLevel(level),
     boardSize,
 
-    // (nem kötelező, de hasznos debug/UI esetén)
     starsRef,
   };
 };

@@ -118,6 +118,10 @@ const MainGame = () => {
 
   const [currentLevel, setCurrentLevel] = useState(() => {
     const raw = localStorage.getItem(LS_CURRENT);
+   useEffect(() => {
+  console.log("[HUD]", { screen, level, moves, score, targetScore });
+}, [screen, level, moves, score, targetScore]);
+    
     return clampLevel(Number(raw ?? 1));
   });
 
@@ -312,10 +316,10 @@ if (typeof gtag === "function") {
   const story = getStoryForLevel(level);
 
   // ✅ TopBar-hoz UI értékek: menu/map alatt ne a game state menjen
-  const uiLevel = screen === "game" ? level : currentLevel;
-  const uiScore = screen === "game" ? score : 0;
-  const uiTarget = screen === "game" ? targetScore : 0;
-  const uiMoves = screen === "game" ? moves : 0;
+  const uiLevel = level;
+  const uiScore = score;
+  const uiTarget = targetScore;
+  const uiMoves = moves;
   const uiMode = screen === "game" ? mode : "moves";
   const uiTimeLeft = screen === "game" ? timeLeftSec : 0;
   const uiTimeLimit = screen === "game" ? timeLimitSec : 0;
@@ -511,17 +515,17 @@ if (typeof gtag === "function") {
               }}
               className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mb-8"
             >
-              Vissza a térképhez
+              Back to map
             </button>
           </div>
         )}
       </div>
 
-      {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
-      {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
+        {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
+        {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
 
-      {/* ✅ TOPBAR: mindig fent, de értelmes értékekkel */}
-      <TopBar
+        {/* ✅ TOPBAR: mindig fent, de értelmes értékekkel */}
+       <TopBar
         onBack={
           screen === "game"
             ? () => {
