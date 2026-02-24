@@ -230,13 +230,16 @@ const MainGame = () => {
    try {
   completeLevel?.(level, score, starsNow);
 
-  const gtag = (window as any).gtag;
-  if (typeof gtag === "function") {
-    gtag("event", "level_completed", {
-      level: level,
-      stars: starsNow,
-    });
-  }
+const gtag = (window as any).gtag;
+if (typeof gtag === "function") {
+  gtag("event", "level_completed", {
+    level,
+    stars: starsNow,
+    score
+  });
+}
+
+completeLevel?.(level, score, starsNow);
 
   if (isShardLevel(level)) markShardFound(level);
 } catch {}
