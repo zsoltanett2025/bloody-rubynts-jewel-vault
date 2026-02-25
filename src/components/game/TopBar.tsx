@@ -112,6 +112,8 @@ export function TopBar(props: {
     return Math.max(0, Math.min(100, (timeLeftSec / timeLimitSec) * 100));
   }, [mode, timeLeftSec, timeLimitSec]);
 
+  const shuffleIconSrc = `${import.meta.env.BASE_URL}assets/ui/shuffle.png`;
+
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999]">
       {isTrial && (
@@ -120,7 +122,7 @@ export function TopBar(props: {
         </div>
       )}
 
-      <div className="w-full h-14 sm:h-auto px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
+      <div className="w-full px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           {/* LEFT: Back + Home */}
           <div className="flex items-center gap-2 shrink-0">
@@ -130,6 +132,7 @@ export function TopBar(props: {
                 onClick={onBack}
                 className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Back"
+                aria-label="Back"
               >
                 ←
               </button>
@@ -140,6 +143,7 @@ export function TopBar(props: {
                 onClick={onHome}
                 className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Home"
+                aria-label="Home"
               >
                 ⌂
               </button>
@@ -150,7 +154,9 @@ export function TopBar(props: {
           <div className="flex items-center gap-3 text-white/90 whitespace-nowrap overflow-hidden">
             <div className="font-gothic text-base sm:text-lg font-bold leading-none">L{level}</div>
 
-            <div className="text-sm sm:text-base font-semibold leading-none">{moves} moves</div>
+            <div className="text-sm sm:text-base font-semibold leading-none tabular-nums">
+              {moves} moves
+            </div>
 
             {mode === "timed" && (
               <div className="flex items-center gap-2">
@@ -187,14 +193,16 @@ export function TopBar(props: {
                 onClick={onShuffle}
                 className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 active:scale-95 transition relative"
                 title="Shuffle"
+                aria-label="Shuffle"
               >
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
+                  src={shuffleIconSrc}
                   alt="shuffle"
                   draggable={false}
                   className="w-full h-full object-contain pointer-events-none"
+                  onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
                 />
-                <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10">
+                <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10 tabular-nums">
                   {shuffleUses}
                 </span>
               </button>
@@ -207,6 +215,7 @@ export function TopBar(props: {
                 onClick={onOpenWallet}
                 className="h-9 w-11 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Wallet"
+                aria-label="Wallet"
               >
                 <Wallet />
               </button>
@@ -217,7 +226,7 @@ export function TopBar(props: {
           </div>
         </div>
 
-        {/* 2nd row desktop: Score + Stars + Progress */}
+        {/* 2nd ROW DESKTOP ONLY: Score + Stars + Progress */}
         <div className="hidden md:block max-w-4xl mx-auto mt-2">
           <div className="flex items-end justify-between gap-3">
             <div className="text-white/90">
@@ -226,7 +235,9 @@ export function TopBar(props: {
                 {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
               </div>
               {typeof activeGemCount === "number" && (
-                <div className="text-[10px] text-white/35 mt-1 font-sans">Active gems: {activeGemCount}</div>
+                <div className="text-[10px] text-white/35 mt-1 font-sans">
+                  Active gems: {activeGemCount}
+                </div>
               )}
             </div>
 
@@ -279,7 +290,7 @@ export function TopBar(props: {
           </div>
         </div>
 
-        {/* Mobile compact bar */}
+        {/* MOBILE (below SM): compact score strip */}
         <div className="sm:hidden px-1 mt-1">
           <div className="flex items-center justify-between text-[11px] text-white/80 tabular-nums">
             <span>
