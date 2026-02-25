@@ -15,7 +15,7 @@ import { assetUrl } from "./utils/assetUrl";
 import { StoryOverlay } from "./components/game/StoryOverlay";
 import { StorySidePanels } from "./components/game/StorySidePanels";
 import { isShardLevel, markShardFound } from "./utils/shards";
-
+import { RubyProgressPanel } from "./components/game/RubyProgressPanel";
 import { isTrial } from "./app/mode";
 import { TopLeftLinks } from "./ui/TopLeftLinks";
 import { InfoModal } from "./ui/InfoModal";
@@ -420,40 +420,70 @@ useEffect(() => {
         )}
 
         {screen === "map" && (
-          <LevelMap
-            totalLevels={TOTAL_LEVELS}
-            currentLevel={currentLevel}
-            unlockedLevel={unlockedLevel}
-            onSelectLevel={(l: number) => {
-              const L = typeof lives === "number" ? lives : 3;
+  <div
+    className="relative w-full"
+    // TopBar fix: ne menjen alá a map tartalom (TopBar kb. 56px)
+    style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}
+  >
+    {/* ✅ 1) Törött rubin / shard progress panel (bal oldalt, desktop only a komponensben) */}
+    <RubyProgressPanel />
 
-              if (L <= 0) {
-                playSound("click");
-                if (isTrial) setTrialMsg("Trial: Shop coming soon.");
-                else setShowShop(true);
-                return;
-              }
+    {/* ✅ 2) Story oldalsó panelek (bal + jobb) – csak akkor, ha van story szöveg */}
+    {story && (
+      <StorySidePanels
+        leftText={story.left}
+        rightText={story.right}
+        showKnights={true}
+      />
+    )}
 
-              playSound("click");
-              setEndOpen(false);
-              setEndWon(false);
-              setEndStars(0);
+    {/* ✅ 3) LevelMap (kapja a teljes helyet a TopBar alatt) */}
+    <div className="w-full h-full">
+      <LevelMap
+        totalLevels={TOTAL_LEVELS}
+        currentLevel={currentLevel}
+        unlockedLevel={unlockedLevel}
+        onSelectLevel={(l: number) => {
+          const L = typeof lives === "number" ? lives : 3;
 
-              const picked = clampLevel(l);
-              setCurrentLevel(picked);
-              startNewGame(picked);
+          if (L <= 0) {
+            playSound("click");
+            if (isTrial) setTrialMsg("Trial: Shop coming soon.");
+            else setShowShop(true);
+            return;
+          }
 
-              const gtag = (window as any).gtag;
-              if (typeof gtag === "function") {
-                gtag("event", "level_started", {
-                  level: picked,
-                });
-              }
+          playSound("click");
+          setEndOpen(false);
+          setEndWon(false);
+          setEndStars(0);
 
-              setScreen("game");
-            }}
-          />
-        )}
+          const picked = clampLevel(l);
+          setCurrentLevel(picked);
+          startNewGame(picked);
+
+          const gtag = (window as any).gtag;
+          if (typeof gtag === "function") {
+            gtag("event", "level_started", { level: picked });
+          }
+
+          setScreen("game");
+        }}
+      />
+    </div>
+
+    {/* ✅ 4) Jobb alsó “chat/feedback” ikon (egyszerű, nem zavaró) */}
+    <a
+      href="https://discord.gg/YOUR_INVITE" // <- ide tedd a saját Discord invite linkedet (vagy website contact)
+      target="_blank"
+      rel="noreferrer"
+      className="fixed bottom-4 right-4 z-[9999] w-12 h-12 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-md grid place-items-center hover:bg-black/70 active:scale-95 transition"
+      title="Send feedback"
+    >
+      💬
+    </a>
+  </div>
+)}
 
         {screen === "game" && (
           <div className="flex flex-col items-center gap-4 w-full pt-20 md:pt-24">
