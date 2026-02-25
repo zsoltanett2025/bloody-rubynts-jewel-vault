@@ -1,5 +1,5 @@
 import React from "react";
-import { loadFoundShards, SHARD_LEVELS } from "../../utils/shards";
+import { loadFoundShards } from "../../utils/shards";
 import { GAME_ASSETS } from "../../utils/gameAssets";
 
 type Node = { level: number; x: number; y: number };
@@ -34,8 +34,6 @@ export function LevelMap(props: {
     Math.floor((currentLevel - 1) / 20) % backgrounds.length;
 
   const knightImg = GAME_ASSETS.map.knight;
-  const crackedRuby = GAME_ASSETS.map.crackedRuby;
-  const shardImgs = GAME_ASSETS.map.rubyShards;
 
   const nodes = React.useMemo(
     () => buildNodes(totalLevels),
@@ -70,7 +68,7 @@ export function LevelMap(props: {
     el.scrollTo({ top, behavior: "smooth" });
   }, [currentLevel, nodes, translateY]);
 
-  const [foundShards, setFoundShards] =
+  const [, setFoundShards] =
     React.useState<Record<number, boolean>>(() =>
       loadFoundShards()
     );
@@ -82,17 +80,6 @@ export function LevelMap(props: {
     );
     return () => window.clearInterval(id);
   }, []);
-
-  const shardStates = React.useMemo(() => {
-    return SHARD_LEVELS.map((lvl, idx) => ({
-      level: lvl,
-      found: !!foundShards[lvl],
-      img: shardImgs[idx % shardImgs.length],
-    }));
-  }, [foundShards, shardImgs]);
-
-  const have = shardStates.filter((s) => s.found).length;
-  const total = shardStates.length;
 
   const currentNode = nodes.find(
     (n) => n.level === currentLevel
