@@ -552,8 +552,9 @@ useEffect(() => {
       {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
       {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
 
-      {/* ✅ TOPBAR */}
+      {/* TOPBAR */}
       <TopBar
+        variant={screen === "game" ? "game" : screen === "map" ? "map" : "menu"}
         isTrial={isTrial}
         onBack={
           screen === "game"

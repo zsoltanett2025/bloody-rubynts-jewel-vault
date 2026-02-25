@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { GAME_ASSETS } from "../../utils/gameAssets";
 import { Wallet } from "lucide-react";
 
+type TopBarVariant = "game" | "map" | "menu";
+
 export function TopBar(props: {
+  variant?: TopBarVariant;
+
   isTrial?: boolean;
 
   onBack?: () => void;
@@ -27,6 +31,8 @@ export function TopBar(props: {
   activeGemCount?: number;
 }) {
   const {
+    variant = "game",
+
     isTrial = false,
 
     onBack,
@@ -50,6 +56,12 @@ export function TopBar(props: {
 
     activeGemCount,
   } = props;
+
+  // ✅ Menu screenen ne látszódjon a TopBar
+  if (variant === "menu") return null;
+
+  const isGame = variant === "game";
+  const isMap = variant === "map";
 
   const { star1, star2, star3, starsEarned, progressPct, t1Pct, t2Pct } = useMemo(() => {
     const s1 = Math.max(1, Math.floor(targetScore));
@@ -78,6 +90,7 @@ export function TopBar(props: {
   const [pop3, setPop3] = useState(false);
 
   useEffect(() => {
+    if (!isGame) return; // csak game-ben animáljuk
     if (starsEarned > prevStars) {
       if (starsEarned >= 1 && prevStars < 1) {
         setPop1(true);
@@ -95,7 +108,7 @@ export function TopBar(props: {
     } else if (starsEarned < prevStars) {
       setPrevStars(starsEarned);
     }
-  }, [starsEarned, prevStars]);
+  }, [starsEarned, prevStars, isGame]);
 
   const heartSrc = GAME_ASSETS.ui.heart;
   const livesClamped = Math.max(0, Math.min(maxLives, lives));
@@ -112,8 +125,6 @@ export function TopBar(props: {
     return Math.max(0, Math.min(100, (timeLeftSec / timeLimitSec) * 100));
   }, [mode, timeLeftSec, timeLimitSec]);
 
-  const shuffleIconSrc = `${import.meta.env.BASE_URL}assets/ui/shuffle.png`;
-
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999]">
       {isTrial && (
@@ -122,9 +133,9 @@ export function TopBar(props: {
         </div>
       )}
 
-      <div className="w-full px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
+      <div className="w-full h-14 sm:h-auto px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-          {/* LEFT: Back + Home */}
+          {/* BAL: Back + Home */}
           <div className="flex items-center gap-2 shrink-0">
             {onBack && (
               <button
@@ -132,7 +143,6 @@ export function TopBar(props: {
                 onClick={onBack}
                 className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Back"
-                aria-label="Back"
               >
                 ←
               </button>
@@ -143,32 +153,38 @@ export function TopBar(props: {
                 onClick={onHome}
                 className="h-9 w-9 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Home"
-                aria-label="Home"
               >
                 ⌂
               </button>
             )}
           </div>
 
-          {/* CENTER: Level + Moves + (Timed compact) */}
+          {/* KÖZÉP */}
           <div className="flex items-center gap-3 text-white/90 whitespace-nowrap overflow-hidden">
-            <div className="font-gothic text-base sm:text-lg font-bold leading-none">L{level}</div>
+            {isMap ? (
+              <>
+                <div className="font-gothic text-base sm:text-lg font-bold leading-none">World Map</div>
+                <div className="text-xs sm:text-sm text-white/60 leading-none">Level {level}</div>
+              </>
+            ) : (
+              <>
+                <div className="font-gothic text-base sm:text-lg font-bold leading-none">L{level}</div>
 
-            <div className="text-sm sm:text-base font-semibold leading-none tabular-nums">
-              {moves} moves
-            </div>
+                <div className="text-sm sm:text-base font-semibold leading-none">{moves} moves</div>
 
-            {mode === "timed" && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm tabular-nums">{timeText}</span>
-                <div className="h-1.5 w-14 sm:w-24 rounded bg-white/15 overflow-hidden">
-                  <div className="h-full bg-red-600/80" style={{ width: `${timePct}%` }} />
-                </div>
-              </div>
+                {mode === "timed" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm tabular-nums">{timeText}</span>
+                    <div className="h-1.5 w-14 sm:w-24 rounded bg-white/15 overflow-hidden">
+                      <div className="h-full bg-red-600/80" style={{ width: `${timePct}%` }} />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* RIGHT: Lives + Shuffle + Wallet (compact) */}
+          {/* JOBB: Lives + Shuffle + Wallet */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Lives */}
             <div className="flex items-center gap-1">
@@ -186,23 +202,21 @@ export function TopBar(props: {
               })}
             </div>
 
-            {/* Shuffle */}
-            {onShuffle && shuffleUses > 0 && (
+            {/* Shuffle: csak GAME-ben */}
+            {isGame && onShuffle && shuffleUses > 0 && (
               <button
                 type="button"
                 onClick={onShuffle}
                 className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 active:scale-95 transition relative"
                 title="Shuffle"
-                aria-label="Shuffle"
               >
                 <img
-                  src={shuffleIconSrc}
+                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
                   alt="shuffle"
                   draggable={false}
                   className="w-full h-full object-contain pointer-events-none"
-                  onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
                 />
-                <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10 tabular-nums">
+                <span className="absolute -right-1 -bottom-1 text-[10px] px-1 rounded bg-black/70 border border-white/10">
                   {shuffleUses}
                 </span>
               </button>
@@ -215,96 +229,99 @@ export function TopBar(props: {
                 onClick={onOpenWallet}
                 className="h-9 w-11 grid place-items-center rounded-xl bg-white/5 border border-white/10 active:bg-white/10"
                 title="Wallet"
-                aria-label="Wallet"
               >
                 <Wallet />
               </button>
             )}
 
-            {/* Rubynt balance (desktop only) */}
-            <div className="hidden md:block mt-1 text-[11px] text-white/70 tabular-nums">{rubyntBalance}</div>
+            {/* Rubynt balance: csak GAME-ben, desktopon */}
+            {isGame && (
+              <div className="hidden md:block mt-1 text-[11px] text-white/70 tabular-nums">{rubyntBalance}</div>
+            )}
           </div>
         </div>
 
-        {/* 2nd ROW DESKTOP ONLY: Score + Stars + Progress */}
-        <div className="hidden md:block max-w-4xl mx-auto mt-2">
-          <div className="flex items-end justify-between gap-3">
-            <div className="text-white/90">
-              <div className="text-xs text-white/60">score</div>
-              <div className="text-base font-bold leading-none tabular-nums">
-                {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
-              </div>
-              {typeof activeGemCount === "number" && (
-                <div className="text-[10px] text-white/35 mt-1 font-sans">
-                  Active gems: {activeGemCount}
+        {/* ✅ 2. sor (Score + Stars + Progress): csak GAME-ben, desktopon */}
+        {isGame && (
+          <div className="hidden md:block max-w-4xl mx-auto mt-2">
+            <div className="flex items-end justify-between gap-3">
+              <div className="text-white/90">
+                <div className="text-xs text-white/60">score</div>
+                <div className="text-base font-bold leading-none tabular-nums">
+                  {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
                 </div>
-              )}
+                {typeof activeGemCount === "number" && (
+                  <div className="text-[10px] text-white/35 mt-1 font-sans">Active gems: {activeGemCount}</div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 text-lg select-none">
+                <span
+                  className={[
+                    starsEarned >= 1 ? "text-yellow-300" : "text-white/25",
+                    pop1 ? "scale-125" : "scale-100",
+                    "inline-block transition-transform duration-200 ease-out",
+                  ].join(" ")}
+                >
+                  ★
+                </span>
+                <span
+                  className={[
+                    starsEarned >= 2 ? "text-yellow-300" : "text-white/25",
+                    pop2 ? "scale-125" : "scale-100",
+                    "inline-block transition-transform duration-200 ease-out",
+                  ].join(" ")}
+                >
+                  ★
+                </span>
+                <span
+                  className={[
+                    starsEarned >= 3 ? "text-yellow-300" : "text-white/25",
+                    pop3 ? "scale-125" : "scale-100",
+                    "inline-block transition-transform duration-200 ease-out",
+                  ].join(" ")}
+                >
+                  ★
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1 text-lg select-none">
-              <span
-                className={[
-                  starsEarned >= 1 ? "text-yellow-300" : "text-white/25",
-                  pop1 ? "scale-125" : "scale-100",
-                  "inline-block transition-transform duration-200 ease-out",
-                ].join(" ")}
-              >
-                ★
-              </span>
-              <span
-                className={[
-                  starsEarned >= 2 ? "text-yellow-300" : "text-white/25",
-                  pop2 ? "scale-125" : "scale-100",
-                  "inline-block transition-transform duration-200 ease-out",
-                ].join(" ")}
-              >
-                ★
-              </span>
-              <span
-                className={[
-                  starsEarned >= 3 ? "text-yellow-300" : "text-white/25",
-                  pop3 ? "scale-125" : "scale-100",
-                  "inline-block transition-transform duration-200 ease-out",
-                ].join(" ")}
-              >
-                ★
-              </span>
+            <div className="mt-2 relative">
+              <div className="h-3 rounded-full bg-white/10 border border-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-red-600/80"
+                  style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }}
+                />
+              </div>
+              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
+              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
+
+              <div className="mt-1 flex justify-between text-[10px] text-white/45 tabular-nums">
+                <span>1★ {star1}</span>
+                <span>2★ {star2}</span>
+                <span>3★ {star3}</span>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="mt-2 relative">
-            <div className="h-3 rounded-full bg-white/10 border border-white/10 overflow-hidden">
+        {/* ✅ Mobil score csík: csak GAME-ben */}
+        {isGame && (
+          <div className="sm:hidden px-1 mt-1">
+            <div className="flex items-center justify-between text-[11px] text-white/80 tabular-nums">
+              <span>
+                {score}/{targetScore}
+              </span>
+              <span className="text-white/55">★{starsEarned}/3</span>
+            </div>
+            <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div
-                className="h-full rounded-full bg-red-600/80"
+                className="h-full bg-red-600/80"
                 style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }}
               />
             </div>
-            <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
-            <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
-
-            <div className="mt-1 flex justify-between text-[10px] text-white/45 tabular-nums">
-              <span>1★ {star1}</span>
-              <span>2★ {star2}</span>
-              <span>3★ {star3}</span>
-            </div>
           </div>
-        </div>
-
-        {/* MOBILE (below SM): compact score strip */}
-        <div className="sm:hidden px-1 mt-1">
-          <div className="flex items-center justify-between text-[11px] text-white/80 tabular-nums">
-            <span>
-              {score}/{targetScore}
-            </span>
-            <span className="text-white/55">★{starsEarned}/3</span>
-          </div>
-          <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full bg-red-600/80"
-              style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
