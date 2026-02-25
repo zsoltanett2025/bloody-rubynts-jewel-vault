@@ -116,10 +116,15 @@ const MainGame = () => {
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
 
-  const [currentLevel, setCurrentLevel] = useState(() => {
-    const raw = localStorage.getItem(LS_CURRENT);
-    return clampLevel(Number(raw ?? 1));
-  });
+ const [currentLevel, setCurrentLevel] = useState(() => {
+  const raw = localStorage.getItem(LS_CURRENT);
+  return clampLevel(Number(raw ?? 1));
+});
+
+// ide jöhet a debug useEffect, a komponens “felső szintjére”
+useEffect(() => {
+  console.log("[HUD]", { screen, level, moves, score, targetScore });
+}, [screen, level, moves, score, targetScore]);
 
   const [unlockedLevel, setUnlockedLevel] = useState(() => {
     const raw = localStorage.getItem(LS_UNLOCKED);
