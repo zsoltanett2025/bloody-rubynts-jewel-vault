@@ -501,7 +501,7 @@ useEffect(() => {
                 }}
                 className="px-8 py-3 bg-gradient-to-r from-red-900 to-red-700 hover:from-red-800 hover:to-red-600 text-white rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 text-base font-gothic border border-red-500/30"
               >
-                Következő pálya (3★)
+                Next Level (3★)
               </button>
             )}
 
