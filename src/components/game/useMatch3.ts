@@ -519,7 +519,9 @@ export const useMatch3 = () => {
   }, [stars]);
 
   const [boardSize, setBoardSize] = useState<number>(8);
-  const [mask, setMask] = useState<boolean[][]>(() => Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true)));
+  const [mask, setMask] = useState<boolean[][]>(() =>
+    Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true))
+  );
 
   const boardSizeRef = useRef(boardSize);
   const maskRef = useRef(mask);
@@ -1063,14 +1065,19 @@ export const useMatch3 = () => {
     const star2 = Math.floor(targetScore * 1.5);
     const star3 = Math.floor(targetScore * 2);
 
-    const earnedStars = progress.score >= star3 ? 3 : progress.score >= star2 ? 2 : progress.score >= star1 ? 1 : 0;
+    const earnedStars =
+      progress.score >= star3 ? 3 : progress.score >= star2 ? 2 : progress.score >= star1 ? 1 : 0;
 
     if (earnedStars !== stars) setStars(earnedStars);
   }, [gameOver, progress.score, targetScore, stars]);
 
-  // ✅ WATCHDOG: ne álljon le csillag miatt
+  // ✅ WATCHDOG: ne álljon le csillag miatt + ne shuffle-öljön fals deadre
   const deadFixingRef = useRef(false);
   const lastWdRef = useRef<{ level: number; possible: number; dead: boolean } | null>(null);
+
+  // ✅ ÚJ: dead streak + anti-spam
+  const deadStreakRef = useRef(0);
+  const lastShuffleAtRef = useRef(0);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -1079,7 +1086,9 @@ export const useMatch3 = () => {
       const g = gemsRef.current;
 
       if (deadFixingRef.current) return;
+      if (processingRef.current) return;
       if (isProcessing || gameOver) return;
+      if (selectedGem) return;
       if (!g || g.length === 0) return;
 
       const possible = countPossibleMoves(g, size, m);
@@ -1094,19 +1103,30 @@ export const useMatch3 = () => {
         lastWdRef.current = { level: levelRef.current, possible, dead };
       }
 
-      if (dead) {
-        deadFixingRef.current = true;
-        try {
-          const fixed = ensurePlayable(g, levelRef.current);
-          setGems(fixed);
-        } finally {
-          deadFixingRef.current = false;
-        }
+      if (!dead) {
+        deadStreakRef.current = 0;
+        return;
+      }
+
+      deadStreakRef.current += 1;
+      if (deadStreakRef.current < 2) return;
+
+      const now = Date.now();
+      if (now - lastShuffleAtRef.current < 1200) return;
+      lastShuffleAtRef.current = now;
+
+      deadFixingRef.current = true;
+      try {
+        const fixed = ensurePlayable(g, levelRef.current);
+        setGems(fixed);
+        deadStreakRef.current = 0;
+      } finally {
+        deadFixingRef.current = false;
       }
     }, 450);
 
     return () => window.clearInterval(id);
-  }, [ensurePlayable, isProcessing, gameOver]);
+  }, [ensurePlayable, isProcessing, gameOver, selectedGem]);
 
   return {
     gameOver,
