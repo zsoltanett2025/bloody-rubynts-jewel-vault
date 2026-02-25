@@ -81,7 +81,7 @@ function calcStars(score: number, targetScore: number) {
 
 const MainGame = () => {
   const [trialMsg, setTrialMsg] = useState<string | null>(null);
-
+  const [lang,] = useState<"hu" | "en">("en");
   const {
     gems,
     score,
@@ -501,7 +501,7 @@ useEffect(() => {
                 }}
                 className="px-8 py-3 bg-gradient-to-r from-red-900 to-red-700 hover:from-red-800 hover:to-red-600 text-white rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 text-base font-gothic border border-red-500/30"
               >
-                Next Level (3★)
+                {lang === "hu" ? "Következő pálya (3★)" : "Next Level (3★)"}
               </button>
             )}
 
@@ -513,7 +513,7 @@ useEffect(() => {
               }}
               className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mb-8"
             >
-              Back to map
+              {lang === "hu" ? "Vissza a térképre" : "Back to map"}
             </button>
           </div>
         )}
@@ -576,7 +576,11 @@ useEffect(() => {
         <div className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-2xl bg-[#140404] border border-red-900/40 p-5 text-center">
             <h2 className="text-2xl font-gothic mb-2">
-              {endWon ? "Gratulálunk!" : mode === "timed" ? "Lejárt az idő!" : "Elfogytak a lépések!"}
+              {endWon
+               ? (lang === "hu" ? "Gratulálunk!" : "Congratulations!")
+               : mode === "timed"
+               ? (lang === "hu" ? "Lejárt az idő!" : "Time’s up!")
+               : (lang === "hu" ? "Elfogytak a lépések!" : "Out of moves!")}
             </h2>
 
             {endWon && (
@@ -587,7 +591,7 @@ useEffect(() => {
             )}
 
             <p className="text-white/70 mb-4">
-              Pontszám: <span className="font-mono font-bold">{score}</span>
+              {lang === "hu" ? "Pontszám" : "Score"}:
             </p>
 
             <div className="flex gap-3 justify-center">
@@ -600,7 +604,7 @@ useEffect(() => {
                 }}
                 type="button"
               >
-                Térkép
+                {lang === "hu" ? "Térkép" : "Map"}
               </button>
 
               <button
@@ -630,7 +634,9 @@ useEffect(() => {
                 }}
                 type="button"
               >
-                {endWon ? "Következő pálya" : "Újra"}
+                {endWon
+                ? (lang === "hu" ? "Következő pálya" : "Next Level")
+                : (lang === "hu" ? "Újra" : "Retry")}
               </button>
             </div>
           </div>
