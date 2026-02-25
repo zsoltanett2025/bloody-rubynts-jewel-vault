@@ -22,7 +22,7 @@ export function StorySidePanels({
     <div className="pointer-events-none absolute inset-0 z-20">
       {/* Bal panel */}
       <div className="hidden lg:block absolute left-0 top-0 h-full w-[320px] xl:w-[380px] p-4">
-        <div className="h-full rounded-2xl border border-red-900/30 bg-black/35 backdrop-blur-sm p-4">
+        <div className="h-full rounded-2xl border border-red-900/30 bg-black/35 backdrop-blur-sm p-4 br-panel-glow">
           <div className="mt-28 text-red-200/70 tracking-[0.28em] uppercase text-xs">
 
             Chronicle
@@ -40,7 +40,7 @@ export function StorySidePanels({
 
       {/* Jobb panel */}
       <div className="hidden lg:block absolute right-0 top-0 h-full w-[320px] xl:w-[380px] p-4">
-        <div className="h-full rounded-2xl border border-red-900/30 bg-black/35 backdrop-blur-sm p-4">
+       <div className="rounded-2xl border border-red-900/30 bg-black/35 backdrop-blur-sm p-4 br-panel-glow">
           <div className="mt-28 text-red-200/70 tracking-[0.28em] uppercase text-xs text-right">
 
             Chronicle

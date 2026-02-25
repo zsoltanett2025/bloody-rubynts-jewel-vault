@@ -40,3 +40,56 @@
 .read-the-docs {
   color: #888;
 }
+/* ================= MAP / PANEL GLOW ================= */
+
+@keyframes brGlow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(220,38,38,0.10),
+                inset 0 0 20px rgba(220,38,38,0.06);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(220,38,38,0.16),
+                inset 0 0 28px rgba(220,38,38,0.10);
+  }
+}
+
+.br-panel-glow {
+  animation: brGlow 4.5s ease-in-out infinite;
+}
+
+
+/* ================= WIN MODAL ANIMATION ================= */
+
+@keyframes brPopIn {
+  0%   { transform: scale(0.92) translateY(10px); opacity: 0; }
+  60%  { transform: scale(1.02) translateY(0); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes brShine {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  30%  { opacity: 0.35; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+.br-win-modal {
+  animation: brPopIn 240ms ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.br-win-modal::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent,
+    rgba(255,255,255,0.08),
+    transparent
+  );
+  animation: brShine 1.8s ease-in-out infinite;
+}

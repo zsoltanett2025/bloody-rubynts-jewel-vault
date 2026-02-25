@@ -90,11 +90,11 @@ export function LevelMap(props: {
       ref={scrollRef}
       className="w-full h-[100svh] overflow-y-auto relative scroll-pt-20"
       style={{
-        backgroundImage: `
-          linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.88)),
-          radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.28), transparent 60%),
-          url("${backgrounds[bgIndex]}")
-        `,
+       backgroundImage: `
+         linear-gradient(180deg, rgba(0,0,0,0.40), rgba(0,0,0,0.72)),
+         radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.20), transparent 60%),
+         url('${backgrounds[bgIndex]}')
+     `,
         backgroundSize: "cover",
         backgroundPosition: "center",
         // ✅ Mobil fix

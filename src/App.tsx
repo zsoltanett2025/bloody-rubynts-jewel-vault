@@ -206,6 +206,16 @@ useEffect(() => {
   }, [screen, endOpen]);
 
   useEffect(() => {
+  if (!endOpen) return;
+
+  if (endWon) {
+    playSound("click");
+  } else {
+    playSound("click");
+  }
+}, [endOpen, endWon]);
+
+  useEffect(() => {
     let track: string | null;
     if (screen === "menu" || screen === "map") track = MUSIC_MENU;
     else track = pickGameMusicByLevel(level);
@@ -605,7 +615,7 @@ useEffect(() => {
 
       {endOpen && (
         <div className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-[#140404] border border-red-900/40 p-5 text-center">
+          <div className="w-full max-w-sm rounded-2xl bg-[#140404] border border-red-900/40 p-5 text-center br-win-modal">
             <h2 className="text-2xl font-gothic mb-2">
               {endWon
                ? (lang === "hu" ? "Gratulálunk!" : "Congratulations!")
@@ -614,12 +624,18 @@ useEffect(() => {
                : (lang === "hu" ? "Elfogytak a lépések!" : "Out of moves!")}
             </h2>
 
-            {endWon && (
-              <div className="text-xl mb-3">
-                {"★".repeat(endStars)}
-                {"☆".repeat(3 - endStars)}
-              </div>
-            )}
+          {endWon && (
+  <>
+    <div className="text-xl mb-3">
+      {"★".repeat(endStars)}
+      {"☆".repeat(3 - endStars)}
+    </div>
+
+    <div className="mt-2 text-sm text-white/80">
+      Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
+    </div>
+  </>
+)}
 
             <p className="text-white/70 mb-4">
               {lang === "hu" ? "Pontszám" : "Score"}:
@@ -627,7 +643,7 @@ useEffect(() => {
 
             <div className="flex gap-3 justify-center">
               <button
-                className="px-4 py-2 rounded-full bg-black/40 border border-red-900/40"
+                className="px-4 py-2 rounded-full bg-black/40 border border-red-900/40 br-win-modal"
                 onClick={() => {
                   playSound("click");
                   setEndOpen(false);
@@ -639,7 +655,7 @@ useEffect(() => {
               </button>
 
               <button
-                className="px-4 py-2 rounded-full bg-red-900/60 hover:bg-red-800"
+                className="px-4 py-2 rounded-full bg-red-900/60 hover:bg-red-800 br-win-modal"
                 onClick={() => {
                   playSound("click");
                   setEndOpen(false);
