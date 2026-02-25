@@ -101,24 +101,7 @@ export function LevelMap(props: {
         backgroundAttachment: isMobile ? "scroll" : "fixed",
       }}
     >
-      <div className="sticky top-0 z-10 px-4 py-3 backdrop-blur-md bg-black/35 border-b border-white/10">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div>
-            <div className="text-white font-semibold">
-              Bloody Rubynts
-            </div>
-            <div className="text-white/60 text-xs">
-              World Map
-            </div>
-          </div>
-          <div className="text-white/70 text-sm">
-            Level{" "}
-            <span className="text-white font-bold">
-              {currentLevel}
-            </span>
-          </div>
-        </div>
-      </div>
+      
 
       <div className="w-full">
         <svg
