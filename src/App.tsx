@@ -20,6 +20,7 @@ import { isTrial } from "./app/mode";
 import { TopLeftLinks } from "./ui/TopLeftLinks";
 import { InfoModal } from "./ui/InfoModal";
 import { InfoButton } from "./ui/InfoButton";
+import   confetti from "canvas-confetti";
 
 const LS_CURRENT = "br_currentLevel";
 const LS_UNLOCKED = "br_unlockedLevel";
@@ -215,10 +216,28 @@ useEffect(() => {
 
   const key = endWon ? "win" : "defeat";
 
-  if (lastEndSoundRef.current === key) return; // 🔒 ne szóljon kétszer
+  if (lastEndSoundRef.current === key) return;
 
   lastEndSoundRef.current = key;
   playSound(key);
+
+  // 🎉 KONFETTI CSAK WINNÉL
+  if (key === "win") {
+  confetti({
+    particleCount: 80,
+    spread: 60,
+    origin: { x: 0.3, y: 0.6 },
+    colors: ["#b30000", "#ff1a1a", "#990000"],
+  });
+
+  confetti({
+    particleCount: 80,
+    spread: 60,
+    origin: { x: 0.7, y: 0.6 },
+    colors: ["#b30000", "#ff1a1a", "#990000"],
+  });
+}
+
 }, [endOpen, endWon]);
 
   useEffect(() => {
