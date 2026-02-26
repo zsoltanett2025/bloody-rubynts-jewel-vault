@@ -1,5 +1,8 @@
 // src/utils/audioManager.ts
+import { SOUND_PACKS, type SoundPackId } from "../audio/soundpacks";
+
 const BASE = import.meta.env.BASE_URL;
+const DEFAULT_PACK: SoundPackId = "A";
 
 // ---------------- helpers ----------------
 function url(p: string) {
@@ -7,32 +10,30 @@ function url(p: string) {
   return `${BASE}${p}`.replace(/\/{2,}/g, "/").replace(":/", "://");
 }
 
-// Fallback: ha a fájl nem ott van, ahol gondoljuk, próbáljuk meg A/sfx alatt is
-function sfxPath(file: string) {
-  // 1) primary: assets/audio/sfx/*
-  // 2) fallback: assets/audio/A/sfx/*
-  return {
-    primary: url(`assets/audio/sfx/${file}`),
-    fallback: url(`assets/audio/A/sfx/${file}`),
-  };
+function sharedSfx(file: string) {
+  return url(`assets/audio/sfx/${file}`);
+}
+
+function packA(file: string) {
+  return url(`assets/audio/A/${file}`);
 }
 
 // ---------------- SFX ----------------
 
-// A-pack (régi, ami biztos működik)
-const matchSfx = url("assets/audio/A/match.mp3");
-const comboSfx = url("assets/audio/A/combo.mp3");
-const winSfx = url("assets/audio/A/win.mp3");
-const clickSfx = url("assets/audio/A/click.mp3");
+// A-pack (biztosan létező nálad)
+const matchSfx = packA("match.mp3");
 
-// ÚJ: power hangok (NÁLAD: assets/audio/sfx/ vagy fallback assets/audio/A/sfx/)
-const bombSfx = sfxPath("bomb.mp3");
-const megaBombSfx = sfxPath("mega_bomb.mp3");
-const stripeHSfx = sfxPath("stripe_h.mp3");
-const stripeVSfx = sfxPath("stripe_v.mp3");
-const defeatSfx = sfxPath("defeat.mp3");
-const chestBlueSfx = sfxPath("chest_blue.mp3");
-const chestPurpleSfx = sfxPath("chest_purple.mp3");
+// shared sfx (a képed alapján ezek itt vannak)
+const clickSfx = sharedSfx("click.mp3");
+const comboSfx = sharedSfx("combo.mp3");
+const defeatSfx = sharedSfx("defeat.mp3");
+
+const bombSfx = sharedSfx("bomb.mp3");
+const megaBombSfx = sharedSfx("mega_bomb.mp3");
+const stripeHSfx = sharedSfx("stripe_h.mp3");
+const stripeVSfx = sharedSfx("stripe_v.mp3");
+const chestBlueSfx = sharedSfx("chest_blue.mp3");
+const chestPurpleSfx = sharedSfx("chest_purple.mp3");
 
 // swap hang (maradhat click)
 const swapSfx = clickSfx;
@@ -51,24 +52,27 @@ export type SfxName =
   | "chest_blue"
   | "chest_purple";
 
-// Ha egy sfx-hez van primary+fallback, akkor a playSound megpróbálja mindkettőt
-type Source = string | { primary: string; fallback: string };
+function getSources(packId: SoundPackId): Record<SfxName, string> {
+  const pack = SOUND_PACKS[packId];
 
-const sources: Record<SfxName, Source> = {
-  swap: swapSfx,
-  match: matchSfx,
-  combo: comboSfx,
-  click: clickSfx,
-  win: winSfx,
+  return {
+    swap: swapSfx,
+    match: matchSfx,
+    combo: comboSfx,
+    click: clickSfx,
 
-  bomb: bombSfx,
-  mega_bomb: megaBombSfx,
-  stripe_h: stripeHSfx,
-  stripe_v: stripeVSfx,
-  defeat: defeatSfx,
-  chest_blue: chestBlueSfx,
-  chest_purple: chestPurpleSfx,
-};
+    // ezek a packból jönnek (SOUND_PACKS-ban már url()-ezve vannak)
+    win: pack.sfx_win,
+    defeat: pack.sfx_defeat ?? defeatSfx,
+
+    bomb: bombSfx,
+    mega_bomb: megaBombSfx,
+    stripe_h: stripeHSfx,
+    stripe_v: stripeVSfx,
+    chest_blue: chestBlueSfx,
+    chest_purple: chestPurpleSfx,
+  };
+}
 
 let muted = false;
 let sfxVolume = 0.8;
@@ -98,49 +102,29 @@ export function unlockAudio() {
 }
 
 // opcionális: előtöltés (ha akarod App.tsx-ben hívni once)
-export function preloadSfx() {
+export function preloadSfx(packId: SoundPackId = DEFAULT_PACK) {
   try {
+    const sources = getSources(packId);
     for (const key of Object.keys(sources) as SfxName[]) {
-      const src = sources[key];
-      if (typeof src === "string") {
-        getAudio(src);
-      } else {
-        getAudio(src.primary);
-        getAudio(src.fallback);
-      }
+      getAudio(sources[key]);
     }
   } catch {}
 }
 
-export function playSound(name: SfxName) {
+export function playSound(name: SfxName, packId: SoundPackId = DEFAULT_PACK) {
   if (muted) return;
 
-  const src = sources[name];
+  const src = getSources(packId)[name];
   if (!src) return;
 
-  const tryPlay = (s: string) => {
-    try {
-      // cloneNode: így több gyors egymás utáni hang is működik
-      const base = getAudio(s);
-      const a = base.cloneNode(true) as HTMLAudioElement;
-      a.volume = sfxVolume;
-      a.currentTime = 0;
-      void a.play().catch(() => {});
-    } catch {}
-  };
-
-  if (typeof src === "string") {
-    tryPlay(src);
-    return;
-  }
-
-  // primary -> fallback
-  tryPlay(src.primary);
-  // ha a primary 404, a fallback legalább megszólalhat (nincs biztos 404 detect, ezért “double try”)
-  // nagyon halk “dupla” esély minimális, de csak akkor lenne gond, ha mindkettő létezik ugyanazzal a hanggal
-  // ha biztos vagy benne hogy csak 1 helyen van, nyugodtan töröld a fallback sort
-  // tryPlay(src.fallback);
-  setTimeout(() => tryPlay(src.fallback), 30);
+  try {
+    // cloneNode: így több gyors egymás utáni hang is működik
+    const base = getAudio(src);
+    const a = base.cloneNode(true) as HTMLAudioElement;
+    a.volume = sfxVolume;
+    a.currentTime = 0;
+    void a.play().catch(() => {});
+  } catch {}
 }
 
 export function setMuted(value: boolean) {

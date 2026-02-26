@@ -205,15 +205,15 @@ useEffect(() => {
     if (screen !== "game" && endOpen) setEndOpen(false);
   }, [screen, endOpen]);
 
-  useEffect(() => {
+ useEffect(() => {
   if (!endOpen) return;
 
   if (endWon) {
-    playSound("click");
+    playSound("win");      // vagy "level_complete"
   } else {
-    playSound("click");
+    playSound("defeat");      // vagy "fail" / "defeat"
   }
-}, [endOpen, endWon]);
+}, [endOpen, endWon, playSound]);
 
   useEffect(() => {
     let track: string | null;
