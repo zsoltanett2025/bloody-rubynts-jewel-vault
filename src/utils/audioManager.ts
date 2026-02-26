@@ -36,7 +36,7 @@ const chestBlueSfx = sharedSfx("chest_blue.mp3");
 const chestPurpleSfx = sharedSfx("chest_purple.mp3");
 
 // swap hang (maradhat click)
-const swapSfx = clickSfx;
+const swapSfx = "";
 
 export type SfxName =
   | "swap"

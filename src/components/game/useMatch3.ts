@@ -983,16 +983,16 @@ export const useMatch3 = () => {
           return;
         }
 
-        safePlay("click");
-        setMovesSynced((mm) => Math.max(0, mm - 1));
-        setSelectedGem(null);
+        
+       
 
-        const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
-        if (powers.includes("bomb")) safePlay("bomb");
-        else if (powers.includes("stripe_h")) safePlay("stripe_h");
-        else if (powers.includes("stripe_v")) safePlay("stripe_v");
-        else if (powers.includes("rainbow")) safePlay("mega_bomb");
+       const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
 
+       if (powers.includes("bomb")) safePlay("bomb");
+       else if (powers.includes("stripe_h")) safePlay("stripe_h");
+       else if (powers.includes("stripe_v")) safePlay("stripe_v");
+       else if (powers.includes("rainbow")) safePlay("mega_bomb");
+       else safePlay("click"); // csak sima swapnál
         const clearIds = new Set<string>();
         if (a?.power) clearIds.add(a.id);
         if (b?.power) clearIds.add(b.id);

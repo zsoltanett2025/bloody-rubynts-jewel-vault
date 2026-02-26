@@ -283,7 +283,6 @@ useEffect(() => {
     setEndStars(starsNow);
     setEndOpen(true);
 
-    playSound("click");
   }, [screen, endOpen, mode, timeLeftSec, moves, starsNow]);
 
   const tileSize = useMemo(() => {
