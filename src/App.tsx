@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "./i8n/i18n";
 
 import { playSound, unlockAudio, playMusic } from "./utils/audioManager";
@@ -205,15 +205,21 @@ useEffect(() => {
     if (screen !== "game" && endOpen) setEndOpen(false);
   }, [screen, endOpen]);
 
- useEffect(() => {
-  if (!endOpen) return;
+ const lastEndSoundRef = useRef<string>("");
 
-  if (endWon) {
-    playSound("win");      // vagy "level_complete"
-  } else {
-    playSound("defeat");      // vagy "fail" / "defeat"
+useEffect(() => {
+  if (!endOpen) {
+    lastEndSoundRef.current = "";
+    return;
   }
-}, [endOpen, endWon, playSound]);
+
+  const key = endWon ? "win" : "defeat";
+
+  if (lastEndSoundRef.current === key) return; // 🔒 ne szóljon kétszer
+
+  lastEndSoundRef.current = key;
+  playSound(key);
+}, [endOpen, endWon]);
 
   useEffect(() => {
     let track: string | null;
