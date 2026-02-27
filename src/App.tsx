@@ -20,7 +20,7 @@ import { isTrial } from "./app/mode";
 import { TopLeftLinks } from "./ui/TopLeftLinks";
 import { InfoModal } from "./ui/InfoModal";
 import { InfoButton } from "./ui/InfoButton";
-import   confetti from "canvas-confetti";
+import confetti from "canvas-confetti";
 
 const LS_CURRENT = "br_currentLevel";
 const LS_UNLOCKED = "br_unlockedLevel";
@@ -82,7 +82,11 @@ function calcStars(score: number, targetScore: number) {
 
 const MainGame = () => {
   const [trialMsg, setTrialMsg] = useState<string | null>(null);
-  const [lang,] = useState<"hu" | "en">("en");
+  const [lang] = useState<"hu" | "en">("en");
+
+  type AppScreen = "menu" | "map" | "game";
+  const [screen, setScreen] = useState<AppScreen>("menu");
+
   const {
     gems,
     score,
@@ -101,12 +105,9 @@ const MainGame = () => {
     boardSize,
     scorePops,
     flashIds,
-  } = useMatch3() as any;
+  } = useMatch3(screen === "game") as any;
 
   const { progress, completeLevel, isLoading, lives, maxLives, spendLife } = useGame() as any;
-
-  type AppScreen = "menu" | "map" | "game";
-  const [screen, setScreen] = useState<AppScreen>("menu");
 
   const [showWallet, setShowWallet] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -117,22 +118,17 @@ const MainGame = () => {
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
 
- const [currentLevel, setCurrentLevel] = useState(() => {
-  const raw = localStorage.getItem(LS_CURRENT);
-  return clampLevel(Number(raw ?? 1));
-});
-
-// ide jöhet a debug useEffect, a komponens “felső szintjére”
-useEffect(() => {
-  console.log("[HUD]", { screen, level, moves, score, targetScore });
-}, [screen, level, moves, score, targetScore]);
+  const [currentLevel, setCurrentLevel] = useState(() => {
+    const raw = localStorage.getItem(LS_CURRENT);
+    return clampLevel(Number(raw ?? 1));
+  });
 
   const [unlockedLevel, setUnlockedLevel] = useState(() => {
     const raw = localStorage.getItem(LS_UNLOCKED);
     return clampLevel(Number(raw ?? 1));
   });
 
-  // ✅ debug: HUD értékek (NEM a useState-ben!)
+  // ✅ debug: HUD értékek (csak egyszer)
   useEffect(() => {
     console.log("[HUD]", { screen, level, moves, score, targetScore });
   }, [screen, level, moves, score, targetScore]);
@@ -206,39 +202,38 @@ useEffect(() => {
     if (screen !== "game" && endOpen) setEndOpen(false);
   }, [screen, endOpen]);
 
- const lastEndSoundRef = useRef<string>("");
+  const lastEndSoundRef = useRef<string>("");
 
-useEffect(() => {
-  if (!endOpen) {
-    lastEndSoundRef.current = "";
-    return;
-  }
+  useEffect(() => {
+    if (!endOpen) {
+      lastEndSoundRef.current = "";
+      return;
+    }
 
-  const key = endWon ? "win" : "defeat";
+    const key = endWon ? "win" : "defeat";
 
-  if (lastEndSoundRef.current === key) return;
+    if (lastEndSoundRef.current === key) return;
 
-  lastEndSoundRef.current = key;
-  playSound(key);
+    lastEndSoundRef.current = key;
+    playSound(key);
 
-  // 🎉 KONFETTI CSAK WINNÉL
-  if (key === "win") {
-  confetti({
-    particleCount: 80,
-    spread: 60,
-    origin: { x: 0.3, y: 0.6 },
-    colors: ["#b30000", "#ff1a1a", "#990000"],
-  });
+    // 🎉 KONFETTI CSAK WINNÉL
+    if (key === "win") {
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { x: 0.3, y: 0.6 },
+        colors: ["#b30000", "#ff1a1a", "#990000"],
+      });
 
-  confetti({
-    particleCount: 80,
-    spread: 60,
-    origin: { x: 0.7, y: 0.6 },
-    colors: ["#b30000", "#ff1a1a", "#990000"],
-  });
-}
-
-}, [endOpen, endWon]);
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { x: 0.7, y: 0.6 },
+        colors: ["#b30000", "#ff1a1a", "#990000"],
+      });
+    }
+  }, [endOpen, endWon]);
 
   useEffect(() => {
     let track: string | null;
@@ -301,7 +296,6 @@ useEffect(() => {
     setEndWon(passed);
     setEndStars(starsNow);
     setEndOpen(true);
-
   }, [screen, endOpen, mode, timeLeftSec, moves, starsNow]);
 
   const tileSize = useMemo(() => {
@@ -454,70 +448,56 @@ useEffect(() => {
         )}
 
         {screen === "map" && (
-  <div
-    className="relative w-full"
-    // TopBar fix: ne menjen alá a map tartalom (TopBar kb. 56px)
-    style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}
-  >
-    {/* ✅ 1) Törött rubin / shard progress panel (bal oldalt, desktop only a komponensben) */}
-    <RubyProgressPanel />
+          <div className="relative w-full" style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}>
+            <RubyProgressPanel />
 
-    {/* ✅ 2) Story oldalsó panelek (bal + jobb) – csak akkor, ha van story szöveg */}
-    {story && (
-      <StorySidePanels
-        leftText={story.left}
-        rightText={story.right}
-        showKnights={true}
-      />
-    )}
+            {story && <StorySidePanels leftText={story.left} rightText={story.right} showKnights={true} />}
 
-    {/* ✅ 3) LevelMap (kapja a teljes helyet a TopBar alatt) */}
-    <div className="w-full h-full">
-      <LevelMap
-        totalLevels={TOTAL_LEVELS}
-        currentLevel={currentLevel}
-        unlockedLevel={unlockedLevel}
-        onSelectLevel={(l: number) => {
-          const L = typeof lives === "number" ? lives : 3;
+            <div className="w-full h-full">
+              <LevelMap
+                totalLevels={TOTAL_LEVELS}
+                currentLevel={currentLevel}
+                unlockedLevel={unlockedLevel}
+                onSelectLevel={(l: number) => {
+                  const L = typeof lives === "number" ? lives : 3;
 
-          if (L <= 0) {
-            playSound("click");
-            if (isTrial) setTrialMsg("Trial: Shop coming soon.");
-            else setShowShop(true);
-            return;
-          }
+                  if (L <= 0) {
+                    playSound("click");
+                    if (isTrial) setTrialMsg("Trial: Shop coming soon.");
+                    else setShowShop(true);
+                    return;
+                  }
 
-          playSound("click");
-          setEndOpen(false);
-          setEndWon(false);
-          setEndStars(0);
+                  playSound("click");
+                  setEndOpen(false);
+                  setEndWon(false);
+                  setEndStars(0);
 
-          const picked = clampLevel(l);
-          setCurrentLevel(picked);
-          startNewGame(picked);
+                  const picked = clampLevel(l);
+                  setCurrentLevel(picked);
+                  startNewGame(picked);
 
-          const gtag = (window as any).gtag;
-          if (typeof gtag === "function") {
-            gtag("event", "level_started", { level: picked });
-          }
+                  const gtag = (window as any).gtag;
+                  if (typeof gtag === "function") {
+                    gtag("event", "level_started", { level: picked });
+                  }
 
-          setScreen("game");
-        }}
-      />
-    </div>
+                  setScreen("game");
+                }}
+              />
+            </div>
 
-    {/* ✅ 4) Jobb alsó “chat/feedback” ikon (egyszerű, nem zavaró) */}
-    <a
-      href="https://discord.gg/YOUR_INVITE" // <- ide tedd a saját Discord invite linkedet (vagy website contact)
-      target="_blank"
-      rel="noreferrer"
-      className="fixed bottom-4 right-4 z-[9999] w-12 h-12 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-md grid place-items-center hover:bg-black/70 active:scale-95 transition"
-      title="Send feedback"
-    >
-      💬
-    </a>
-  </div>
-)}
+            <a
+              href="https://discord.gg/YOUR_INVITE"
+              target="_blank"
+              rel="noreferrer"
+              className="fixed bottom-4 right-4 z-[9999] w-12 h-12 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-md grid place-items-center hover:bg-black/70 active:scale-95 transition"
+              title="Send feedback"
+            >
+              💬
+            </a>
+          </div>
+        )}
 
         {screen === "game" && (
           <div className="flex flex-col items-center gap-4 w-full pt-20 md:pt-24">
@@ -549,7 +529,6 @@ useEffect(() => {
                 ))}
             </div>
 
-            {/* ✅ 3★ esetén azonnali továbblépés */}
             {canGoNextNow && (
               <button
                 type="button"
@@ -642,28 +621,32 @@ useEffect(() => {
           <div className="w-full max-w-sm rounded-2xl bg-[#140404] border border-red-900/40 p-5 text-center br-win-modal">
             <h2 className="text-2xl font-gothic mb-2">
               {endWon
-               ? (lang === "hu" ? "Gratulálunk!" : "Congratulations!")
-               : mode === "timed"
-               ? (lang === "hu" ? "Lejárt az idő!" : "Time’s up!")
-               : (lang === "hu" ? "Elfogytak a lépések!" : "Out of moves!")}
+                ? lang === "hu"
+                  ? "Gratulálunk!"
+                  : "Congratulations!"
+                : mode === "timed"
+                  ? lang === "hu"
+                    ? "Lejárt az idő!"
+                    : "Time’s up!"
+                  : lang === "hu"
+                    ? "Elfogytak a lépések!"
+                    : "Out of moves!"}
             </h2>
 
-          {endWon && (
-  <>
-    <div className="text-xl mb-3">
-      {"★".repeat(endStars)}
-      {"☆".repeat(3 - endStars)}
-    </div>
+            {endWon && (
+              <>
+                <div className="text-xl mb-3">
+                  {"★".repeat(endStars)}
+                  {"☆".repeat(3 - endStars)}
+                </div>
 
-    <div className="mt-2 text-sm text-white/80">
-      Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
-    </div>
-  </>
-)}
+                <div className="mt-2 text-sm text-white/80">
+                  Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
+                </div>
+              </>
+            )}
 
-            <p className="text-white/70 mb-4">
-              {lang === "hu" ? "Pontszám" : "Score"}:
-            </p>
+            <p className="text-white/70 mb-4">{lang === "hu" ? "Pontszám" : "Score"}:</p>
 
             <div className="flex gap-3 justify-center">
               <button
@@ -705,9 +688,7 @@ useEffect(() => {
                 }}
                 type="button"
               >
-                {endWon
-                ? (lang === "hu" ? "Következő pálya" : "Next Level")
-                : (lang === "hu" ? "Újra" : "Retry")}
+                {endWon ? (lang === "hu" ? "Következő pálya" : "Next Level") : lang === "hu" ? "Újra" : "Retry"}
               </button>
             </div>
           </div>

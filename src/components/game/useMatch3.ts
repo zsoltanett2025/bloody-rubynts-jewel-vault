@@ -508,9 +508,11 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
    ✅ HOOK
    =========================== */
 
-export const useMatch3 = () => {
+// ✅ active = csak akkor fusson a watchdog/auto shuffle, amikor tényleg GAME képernyőn vagyunk
+export const useMatch3 = (active: boolean = true) => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
+  const [isShuffling, setIsShuffling] = useState(false);
 
   // ✅ Stars ref (mindig friss, UI-nak hasznos)
   const starsRef = useRef(0);
@@ -592,6 +594,30 @@ export const useMatch3 = () => {
     try {
       playSound(name);
     } catch {}
+  }, []);
+
+  // ✅ dead-board timeout ref (ne fusson Map/Menu alatt)
+  const shuffleTimeoutRef = useRef<number | null>(null);
+
+  // ✅ ha nem aktív a játék képernyő, állítsuk le a pending shuffle-t
+  useEffect(() => {
+    if (active) return;
+
+    if (shuffleTimeoutRef.current) {
+      window.clearTimeout(shuffleTimeoutRef.current);
+      shuffleTimeoutRef.current = null;
+    }
+
+    // UI state takarítás (biztonságos)
+    setIsShuffling(false);
+    setSelectedGem(null);
+  }, [active]);
+
+  // ✅ cleanup unmount
+  useEffect(() => {
+    return () => {
+      if (shuffleTimeoutRef.current) window.clearTimeout(shuffleTimeoutRef.current);
+    };
   }, []);
 
   // ✅ mindig state + ref együtt (HUD ne “0”-zzon)
@@ -868,7 +894,7 @@ export const useMatch3 = () => {
   );
 
   const shuffleBoard = useCallback(async () => {
-    if (shuffleUsesRef.current <= 0 || isProcessing) return;
+    if (shuffleUsesRef.current <= 0 || isProcessing || isShuffling) return;
 
     try {
       const size = boardSizeRef.current;
@@ -885,11 +911,13 @@ export const useMatch3 = () => {
       await wait(220);
       await processMatches(shuffled, levelRef.current);
     } catch {}
-  }, [isProcessing, processMatches]);
+  }, [isProcessing, isShuffling, processMatches]);
 
   const selectGem = useCallback(
     async (gem: Gem) => {
-      if (isProcessing) return;
+      if (!active) return;
+
+      if (isProcessing || isShuffling) return;
       if (movesRef.current <= 0) return;
       if (mode === "timed" && timeLeftSec <= 0) return;
       if (gameOver) return;
@@ -965,34 +993,50 @@ export const useMatch3 = () => {
 
       const matches = findMatches(swapped, size, m);
 
+      // -----------------------------
+      // ❌ NINCS MATCH
+      // -----------------------------
       if (matches.length === 0) {
         const a = swapped.find((gg) => gg.id === selectedGem.id);
         const b = swapped.find((gg) => gg.id === gem.id);
 
         const hasPower = !!a?.power || !!b?.power;
 
+        // ✅ Simán rossz swap (nincs power)
         if (!hasPower) {
           setGems(original);
           setSelectedGem(null);
           setIsProcessing(false);
 
+          // ✅ dead-board -> automata keverés, hogy legyen lépés
           if (!hasAnyMove(original, size, m)) {
+            setIsShuffling(true);
+            setSelectedGem(null);
+
             const fixed = ensurePlayable(original, levelRef.current);
-            setGems(fixed);
+
+            if (shuffleTimeoutRef.current) window.clearTimeout(shuffleTimeoutRef.current);
+            shuffleTimeoutRef.current = window.setTimeout(() => {
+              if (!active) return;
+              setGems(fixed);
+              setIsShuffling(false);
+            }, 300);
+
+            return;
           }
+
           return;
         }
 
-        
-       
+        // ✅ Power swap (match nélkül is robbanhat)
+        const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
 
-       const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
+        if (powers.includes("bomb")) safePlay("bomb");
+        else if (powers.includes("stripe_h")) safePlay("stripe_h");
+        else if (powers.includes("stripe_v")) safePlay("stripe_v");
+        else if (powers.includes("rainbow")) safePlay("mega_bomb");
+        else safePlay("click");
 
-       if (powers.includes("bomb")) safePlay("bomb");
-       else if (powers.includes("stripe_h")) safePlay("stripe_h");
-       else if (powers.includes("stripe_v")) safePlay("stripe_v");
-       else if (powers.includes("rainbow")) safePlay("mega_bomb");
-       else safePlay("click"); // csak sima swapnál
         const clearIds = new Set<string>();
         if (a?.power) clearIds.add(a.id);
         if (b?.power) clearIds.add(b.id);
@@ -1031,17 +1075,24 @@ export const useMatch3 = () => {
         await processMatches(after, levelRef.current);
 
         setIsProcessing(false);
+        setSelectedGem(null);
         return;
       }
 
+      // -----------------------------
+      // ✅ VAN MATCH
+      // -----------------------------
       safePlay("click");
       setMovesSynced((mm) => Math.max(0, mm - 1));
       setSelectedGem(null);
 
       addScore(5);
       await processMatches(swapped, levelRef.current);
+
+      setIsProcessing(false);
     },
     [
+      active,
       addScore,
       countCleared,
       processMatches,
@@ -1051,6 +1102,7 @@ export const useMatch3 = () => {
       timeLeftSec,
       gameOver,
       isProcessing,
+      isShuffling,
       ensurePlayable,
       triggerMatchFx,
       setMovesSynced,
@@ -1071,19 +1123,22 @@ export const useMatch3 = () => {
     if (earnedStars !== stars) setStars(earnedStars);
   }, [gameOver, progress.score, targetScore, stars]);
 
-  // ✅ WATCHDOG: ne álljon le csillag miatt + ne shuffle-öljön fals deadre
+  // ✅ WATCHDOG: csak GAME képernyőn fusson
   const deadFixingRef = useRef(false);
   const lastWdRef = useRef<{ level: number; possible: number; dead: boolean } | null>(null);
 
-  // ✅ ÚJ: dead streak + anti-spam
   const deadStreakRef = useRef(0);
   const lastShuffleAtRef = useRef(0);
 
   useEffect(() => {
+    if (!active) return;
+
     const id = window.setInterval(() => {
       const size = boardSizeRef.current;
       const m = maskRef.current;
       const g = gemsRef.current;
+
+      if (!active) return;
 
       if (deadFixingRef.current) return;
       if (processingRef.current) return;
@@ -1099,7 +1154,14 @@ export const useMatch3 = () => {
 
       if (dead || changed) {
         const hint = findFirstMove(g, size, m);
-        console.log("[WATCHDOG]", { level: levelRef.current, size, possibleMoves: possible, dead, gemsLen: g.length, hint });
+        console.log("[WATCHDOG]", {
+          level: levelRef.current,
+          size,
+          possibleMoves: possible,
+          dead,
+          gemsLen: g.length,
+          hint,
+        });
         lastWdRef.current = { level: levelRef.current, possible, dead };
       }
 
@@ -1126,7 +1188,7 @@ export const useMatch3 = () => {
     }, 450);
 
     return () => window.clearInterval(id);
-  }, [ensurePlayable, isProcessing, gameOver, selectedGem]);
+  }, [active, ensurePlayable, isProcessing, gameOver, selectedGem]);
 
   return {
     gameOver,
@@ -1163,5 +1225,6 @@ export const useMatch3 = () => {
     boardSize,
 
     starsRef,
+    isShuffling,
   };
 };
