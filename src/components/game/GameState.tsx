@@ -171,7 +171,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const n = Number(raw);
 
       if (!Number.isFinite(n)) {
-        // NEW USER => START FULL (this fixes "empty lives on register")
+        // NEW USER => START FULL
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(Date.now()));
         setLives(maxLives);
