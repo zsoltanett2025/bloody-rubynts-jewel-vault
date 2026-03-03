@@ -297,6 +297,19 @@ const [showWallet, setShowWallet] = useState(false);
     if (lvl >= 51 && lvl <= 60) return MUSIC_GAME_01;
     if (lvl >= 61 && lvl <= 70) return MUSIC_GAME_02;
     if (lvl >= 71 && lvl <= 80) return MUSIC_MENU_01;
+   
+     // 🔁 Ismétlés 81–160
+
+    if (lvl >= 81 && lvl <= 90) return MUSIC_BOSS_01;
+    if (lvl >= 91 && lvl <= 100) return MUSIC_BOSS_02;
+    if (lvl >= 101 && lvl <= 110) return MUSIC_BOSS_03;
+    if (lvl >= 111 && lvl <= 120) return MUSIC_BOSS_04;
+    if (lvl >= 121 && lvl <= 130) return MUSIC_BOSS_05;
+
+    if (lvl >= 131 && lvl <= 140) return MUSIC_GAME_01;
+    if (lvl >= 141 && lvl <= 150) return MUSIC_GAME_02;
+    if (lvl >= 151 && lvl <= 160) return MUSIC_MENU_01;
+
     return null;
   }
 
@@ -320,7 +333,7 @@ const [showWallet, setShowWallet] = useState(false);
       setVh(window.innerHeight);
     };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize)
   }, []);
 
   // ✅ MATCH-3
