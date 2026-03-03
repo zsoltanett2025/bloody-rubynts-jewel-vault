@@ -100,28 +100,32 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   // ✅ lives init: if missing for this user => seed to full immediately
   const [lives, setLives] = useState(() => {
-    const u = getUserKeyFromStorage();
-
-    // guest always full (no persistence)
-    if (!u || u === "guest") return maxLives;
-
     try {
-      const raw = localStorage.getItem(livesKey(u));
-      const n = Number(raw);
+      const u = getUserKeyFromStorage();
 
-      if (!Number.isFinite(n)) {
-        // seed full for brand new user
+      // guest always full (no persistence)
+      if (!u || u === "guest") return maxLives;
+
+      const raw = localStorage.getItem(livesKey(u));
+
+      // ✅ NEW USER: missing key => start full + seed
+      if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(Date.now()));
         return maxLives;
       }
+
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return maxLives;
 
       const loaded = clampLives(n, maxLives);
 
       // ensure TS exists
       const tsRaw = localStorage.getItem(livesTsKey(u));
       const ts = Number(tsRaw);
-      if (!Number.isFinite(ts) || ts <= 0) localStorage.setItem(livesTsKey(u), String(Date.now()));
+      if (!Number.isFinite(ts) || ts <= 0) {
+        localStorage.setItem(livesTsKey(u), String(Date.now()));
+      }
 
       return loaded;
     } catch {
@@ -168,27 +172,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const raw = localStorage.getItem(livesKey(u));
-      const n = Number(raw);
 
-      if (!Number.isFinite(n)) {
-        // NEW USER => START FULL
+      // ✅ NEW USER
+      if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(Date.now()));
         setLives(maxLives);
         return;
       }
 
-      const loaded = clampLives(n, maxLives);
+      const n = Number(raw);
+      const loaded = Number.isFinite(n) ? clampLives(n, maxLives) : maxLives;
       setLives(loaded);
 
       // ensure TS exists
       const tsRaw = localStorage.getItem(livesTsKey(u));
       const ts = Number(tsRaw);
-      if (!Number.isFinite(ts) || ts <= 0) localStorage.setItem(livesTsKey(u), String(Date.now()));
+      if (!Number.isFinite(ts) || ts <= 0) {
+        localStorage.setItem(livesTsKey(u), String(Date.now()));
+      }
     } catch {
       setLives(maxLives);
     }
-  }, [userKey, maxLives]);
+  }, [userKey]);
 
   // ✅ regen tick (source of truth: localStorage)
   const tickLives = useCallback(() => {
@@ -199,17 +205,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now();
 
       // read stored lives
-      const lRaw = localStorage.getItem(livesKey(u));
-      let current = Number(lRaw);
+      const raw = localStorage.getItem(livesKey(u));
 
-      // if missing => seed full (safety)
-      if (!Number.isFinite(current)) {
+      // ✅ missing key => seed full (safety)
+      if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(now));
-        if (lives !== maxLives) setLives(maxLives);
+        setLives(maxLives);
         return;
       }
 
+      let current = Number(raw);
+      if (!Number.isFinite(current)) current = maxLives;
       current = clampLives(current, maxLives);
 
       // read timestamp
@@ -240,7 +247,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(livesTsKey(u), String(newTs));
       setLives(next);
     } catch {}
-  }, [userKey, lives, maxLives]);
+  }, [userKey, lives]);
 
   useEffect(() => {
     tickLives();
@@ -265,14 +272,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (u && u !== "guest") {
           localStorage.setItem(livesKey(u), String(next));
 
-          // IMPORTANT: when spending life, restart timer NOW (so regen starts immediately)
-          if (next < maxLives) localStorage.setItem(livesTsKey(u), String(Date.now()));
+          // IMPORTANT: when spending life, restart timer NOW (regen starts immediately)
+          if (next < maxLives) {
+            localStorage.setItem(livesTsKey(u), String(Date.now()));
+          }
         }
       } catch {}
 
       return next;
     });
-  }, [userKey, maxLives]);
+  }, [userKey]);
 
   const resetLives = useCallback(() => {
     const u = userKey;
@@ -283,7 +292,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(livesTsKey(u), String(Date.now()));
       }
     } catch {}
-  }, [userKey, maxLives]);
+  }, [userKey]);
 
   const addLives = useCallback(
     (n: number) => {
@@ -303,7 +312,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [userKey, maxLives]
+    [userKey]
   );
 
   const setLivesToMax = useCallback(() => {
@@ -315,7 +324,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(livesTsKey(u), String(Date.now()));
       }
     } catch {}
-  }, [userKey, maxLives]);
+  }, [userKey]);
 
   const addInventoryItem = useCallback((key: "bombs" | "wizards", n: number) => {
     const a = Math.max(0, Math.floor(Number(n) || 0));
