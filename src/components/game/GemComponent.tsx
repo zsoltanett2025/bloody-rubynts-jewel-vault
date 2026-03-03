@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { useMemo } from "react";
 import { GAME_ASSETS } from "../../utils/gameAssets";
 import type { Gem } from "./useMatch3";
 
@@ -50,9 +50,10 @@ export function GemComponent({
   // ✅ 1–10: egyszerű kinézet (típusonként 1 fix kép)
   const simpleSkins = typeof level === "number" && level <= SIMPLE_SKINS_UNTIL_LEVEL;
 
-  const baseGemUrl = simpleSkins
-    ? (pool[0] ?? GAME_ASSETS.gems.ruby_round)
-    : (pool[hashToIndex(gem.id, pool.length)] ?? GAME_ASSETS.gems.ruby_round);
+  const baseGemUrl = useMemo(() => {
+    if (simpleSkins) return pool[0] ?? GAME_ASSETS.gems.ruby_round;
+    return pool[hashToIndex(gem.id, pool.length)] ?? GAME_ASSETS.gems.ruby_round;
+  }, [simpleSkins, pool, gem.id]);
 
   const powerIcon =
     gem.power === "stripe_h"
@@ -67,11 +68,14 @@ export function GemComponent({
 
   const isPower = !!powerIcon && gem.type !== "chest";
 
+  // ✅ Stabil transform: nincs külső DOM animáció
+  const transform = `translate3d(${x}px, ${y}px, 0) scale(${isSelected ? 1.05 : 1})`;
+
   return (
-    <motion.button
+    <button
       type="button"
       onPointerDown={(e) => {
-        e.preventDefault();
+        // ✅ minimál beavatkozás, ne “zúzzuk szét” az event chain-t
         e.stopPropagation();
         onClick();
       }}
@@ -81,18 +85,8 @@ export function GemComponent({
         height: size,
         touchAction: "manipulation",
         willChange: "transform",
-      }}
-      initial={false}
-      animate={{
-        x,
-        y,
-        scale: isSelected ? 1.05 : 1,
-        opacity: 1,
-      }}
-      transition={{
-        x: { type: "tween", duration: 0.22, ease: "easeOut" },
-        y: { type: "tween", duration: 0.22, ease: "easeOut" },
-        scale: { type: "tween", duration: 0.14, ease: "easeOut" },
+        transform,
+        transition: "transform 220ms ease-out",
       }}
     >
       <img
@@ -112,11 +106,7 @@ export function GemComponent({
         />
       )}
 
-      <div
-        className={`absolute inset-0 rounded-xl ${
-          isSelected ? "ring-2 ring-white" : "ring-1 ring-white/10"
-        }`}
-      />
-    </motion.button>
+      <div className={`absolute inset-0 rounded-xl ${isSelected ? "ring-2 ring-white" : "ring-1 ring-white/10"}`} />
+    </button>
   );
 }

@@ -1,13 +1,13 @@
 {
   "menu": {
-    "title": "ÉKSZERBOLTOZAT",
-    "enter": "Lépj be a trezorba",
-    "shop": "Üzlet",
-    "wallet": "Pénztárca"
+    "title": "JEWEL VAULT",
+    "enter": "Enter the Vault",
+    "shop": "Shop",
+    "wallet": "Wallet"
   },
   "feedback": {
-    "title": "Próba verzió visszajelzés",
-    "subtitle": "Írd le a hibát vagy ötletet. Másold ki és illeszd be Discordra vagy Redditre.",
-    "placeholder": "Hiba, ötlet, javaslat..."
+    "title": "Trial Version Feedback",
+    "subtitle": "Describe the bug or share an idea. Copy and paste it to Discord or Reddit.",
+    "placeholder": "Bug, idea, suggestion..."
   }
 }

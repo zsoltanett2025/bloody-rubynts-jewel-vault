@@ -1,7 +1,8 @@
 const LS_SHARDS = "br_shards_found_v1";
 
 // ✅ shard (nehéz) pályák – később bővítjük/generáljuk
-export const SHARD_LEVELS: number[] = [10, 25, 40, 60, 80, 100];
+// FIX: a 10-es pályát kivettük, hogy ne legyen timed + ne legyen "furcsa" (score 0 / gyors vége)
+export const SHARD_LEVELS: number[] = [25, 40, 60, 80, 100];
 
 export function isShardLevel(level: number) {
   return SHARD_LEVELS.includes(level);

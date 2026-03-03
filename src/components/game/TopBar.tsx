@@ -1,20 +1,23 @@
+// src/components/game/TopBar.tsx
 import { useEffect, useMemo, useState } from "react";
 import { GAME_ASSETS } from "../../utils/gameAssets";
-import { Wallet } from "lucide-react";
+import { LogOut, Wallet } from "lucide-react";
 
 type TopBarVariant = "game" | "map" | "menu";
 
 export function TopBar(props: {
   variant?: TopBarVariant;
 
-  isTrial?: boolean;
-
   onBack?: () => void;
   onHome?: () => void;
   onOpenWallet?: () => void;
-
+  onOpenShop?: () => void;
+ shardCount?: number;     
+  onOpenShards?: () => void;
+ 
   onShuffle?: () => void;
   shuffleUses?: number;
+  onLogout?: () => void;
 
   rubyntBalance: number;
   score: number;
@@ -32,8 +35,6 @@ export function TopBar(props: {
 }) {
   const {
     variant = "game",
-
-    isTrial = false,
 
     onBack,
     onHome,
@@ -57,32 +58,32 @@ export function TopBar(props: {
     activeGemCount,
   } = props;
 
-  // ✅ Menu screenen ne látszódjon a TopBar
   if (variant === "menu") return null;
 
   const isGame = variant === "game";
   const isMap = variant === "map";
 
-  const { star1, star2, star3, starsEarned, progressPct, t1Pct, t2Pct } = useMemo(() => {
-    const s1 = Math.max(1, Math.floor(targetScore));
-    const s2 = Math.max(s1 + 1, Math.floor(targetScore * 1.5));
-    const s3 = Math.max(s2 + 1, Math.floor(targetScore * 2));
+  const { star1, star2, star3, starsEarned, progressPct, t1Pct, t2Pct } =
+    useMemo(() => {
+      const s1 = Math.max(1, Math.floor(targetScore));
+      const s2 = Math.max(s1 + 1, Math.floor(targetScore * 1.5));
+      const s3 = Math.max(s2 + 1, Math.floor(targetScore * 2));
 
-    const earned = score >= s3 ? 3 : score >= s2 ? 2 : score >= s1 ? 1 : 0;
+      const earned = score >= s3 ? 3 : score >= s2 ? 2 : score >= s1 ? 1 : 0;
 
-    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-    const prog = clamp01(score / s3);
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const prog = clamp01(score / s3);
 
-    return {
-      star1: s1,
-      star2: s2,
-      star3: s3,
-      starsEarned: earned,
-      progressPct: prog * 100,
-      t1Pct: (s1 / s3) * 100,
-      t2Pct: (s2 / s3) * 100,
-    };
-  }, [score, targetScore]);
+      return {
+        star1: s1,
+        star2: s2,
+        star3: s3,
+        starsEarned: earned,
+        progressPct: prog * 100,
+        t1Pct: (s1 / s3) * 100,
+        t2Pct: (s2 / s3) * 100,
+      };
+    }, [score, targetScore]);
 
   const [prevStars, setPrevStars] = useState(0);
   const [pop1, setPop1] = useState(false);
@@ -90,7 +91,7 @@ export function TopBar(props: {
   const [pop3, setPop3] = useState(false);
 
   useEffect(() => {
-    if (!isGame) return; // csak game-ben animáljuk
+    if (!isGame) return;
     if (starsEarned > prevStars) {
       if (starsEarned >= 1 && prevStars < 1) {
         setPop1(true);
@@ -127,15 +128,8 @@ export function TopBar(props: {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999]">
-      {isTrial && (
-        <div className="md:hidden bg-red-600/80 text-white text-xs text-center py-2">
-          Mobile version is being optimized. Best experience on desktop.
-        </div>
-      )}
-
       <div className="w-full h-14 sm:h-auto px-2 sm:px-4 py-2 sm:py-3 bg-black/55 backdrop-blur-md border-b border-white/10 overflow-hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-          {/* BAL: Back + Home */}
           <div className="flex items-center gap-2 shrink-0">
             {onBack && (
               <button
@@ -159,24 +153,33 @@ export function TopBar(props: {
             )}
           </div>
 
-          {/* KÖZÉP */}
-          <div className="flex items-center gap-3 text-white/90 whitespace-nowrap overflow-hidden">
+          <div className="flex items-center gap-3 text-white/90 whitespace-nowrap">
             {isMap ? (
               <>
-                <div className="font-gothic text-base sm:text-lg font-bold leading-none">World Map</div>
-                <div className="text-xs sm:text-sm text-white/60 leading-none">Level {level}</div>
+                <div className="font-gothic text-base sm:text-lg font-bold leading-none">
+                  World Map
+                </div>
+                <div className="text-xs sm:text-sm text-white/60 leading-none">
+                  Level {level}
+                </div>
               </>
             ) : (
               <>
-                <div className="font-gothic text-base sm:text-lg font-bold leading-none">L{level}</div>
-
-                <div className="text-sm sm:text-base font-semibold leading-none">{moves} moves</div>
+                <div className="font-gothic text-base sm:text-lg font-bold leading-none">
+                  L{level}
+                </div>
+                <div className="text-sm sm:text-base font-semibold leading-none">
+                  {moves} moves
+                </div>
 
                 {mode === "timed" && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm tabular-nums">{timeText}</span>
                     <div className="h-1.5 w-14 sm:w-24 rounded bg-white/15 overflow-hidden">
-                      <div className="h-full bg-red-600/80" style={{ width: `${timePct}%` }} />
+                      <div
+                        className="h-full bg-red-600/80"
+                        style={{ width: `${timePct}%` }}
+                      />
                     </div>
                   </div>
                 )}
@@ -184,9 +187,7 @@ export function TopBar(props: {
             )}
           </div>
 
-          {/* JOBB: Lives + Shuffle + Wallet */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Lives */}
             <div className="flex items-center gap-1">
               {Array.from({ length: maxLives }).map((_, i) => {
                 const filled = i < livesClamped;
@@ -195,14 +196,16 @@ export function TopBar(props: {
                     key={i}
                     src={heartSrc}
                     alt="life"
-                    className={["w-4 h-4 sm:w-5 sm:h-5", filled ? "opacity-100" : "opacity-30"].join(" ")}
+                    className={[
+                      "w-4 h-4 sm:w-5 sm:h-5",
+                      filled ? "opacity-100" : "opacity-30",
+                    ].join(" ")}
                     draggable={false}
                   />
                 );
               })}
             </div>
 
-            {/* Shuffle: csak GAME-ben */}
             {isGame && onShuffle && shuffleUses > 0 && (
               <button
                 type="button"
@@ -222,7 +225,6 @@ export function TopBar(props: {
               </button>
             )}
 
-            {/* Wallet */}
             {onOpenWallet && (
               <button
                 type="button"
@@ -234,24 +236,67 @@ export function TopBar(props: {
               </button>
             )}
 
-            {/* Rubynt balance: csak GAME-ben, desktopon */}
-            {isGame && (
-              <div className="hidden md:block mt-1 text-[11px] text-white/70 tabular-nums">{rubyntBalance}</div>
+            {props.onOpenShop && (
+              <button
+                type="button"
+                onClick={props.onOpenShop}
+                className="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/15 transition"
+          >
+                Shop
+             </button>
+          )}
+            {props.onLogout && (
+              <button
+                type="button"
+                onClick={props.onLogout}
+                className="ml-2 flex items-center gap-1 px-3 py-2 rounded-xl bg-black/35 border border-white/10 hover:bg-black/55 active:scale-95 transition"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden md:inline text-xs text-white/60">
+                  Logout
+                </span>
+              </button>
+            )}
+
+{typeof props.shardCount === "number" && props.onOpenShards && (
+  <button
+    type="button"
+    onClick={props.onOpenShards}
+    className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-xs"
+    title="Ruby shards"
+  >
+    Shards {props.shardCount}/15
+  </button>
+)}
+
+            {(isGame || isMap) && (
+              <div className="ml-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-black/35 border border-white/10">
+                <span className="text-xs text-white/60">BR</span>
+                <span className="text-sm font-semibold tabular-nums text-white/90">
+                  {rubyntBalance}
+                </span>
+              </div>
             )}
           </div>
         </div>
 
-        {/* ✅ 2. sor (Score + Stars + Progress): csak GAME-ben, desktopon */}
         {isGame && (
           <div className="hidden md:block max-w-4xl mx-auto mt-2">
             <div className="flex items-end justify-between gap-3">
               <div className="text-white/90">
                 <div className="text-xs text-white/60">score</div>
                 <div className="text-base font-bold leading-none tabular-nums">
-                  {score} <span className="text-white/50 text-sm font-normal">/ {targetScore}</span>
+                  {score}{" "}
+                  <span className="text-white/50 text-sm font-normal">
+                    / {targetScore}
+                  </span>
                 </div>
                 {typeof activeGemCount === "number" && (
-                  <div className="text-[10px] text-white/35 mt-1 font-sans">Active gems: {activeGemCount}</div>
+                  <div className="text-[10px] text-white/35 mt-1 font-sans">
+                    Active gems: {activeGemCount}
+                  </div>
                 )}
               </div>
 
@@ -290,11 +335,20 @@ export function TopBar(props: {
               <div className="h-3 rounded-full bg-white/10 border border-white/10 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-red-600/80"
-                  style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }}
+                  style={{
+                    width: `${progressPct}%`,
+                    transition: "width 180ms ease-out",
+                  }}
                 />
               </div>
-              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t1Pct}%` }} />
-              <div className="absolute -top-[2px] w-[2px] h-4 bg-white/35" style={{ left: `${t2Pct}%` }} />
+              <div
+                className="absolute -top-[2px] w-[2px] h-4 bg-white/35"
+                style={{ left: `${t1Pct}%` }}
+              />
+              <div
+                className="absolute -top-[2px] w-[2px] h-4 bg-white/35"
+                style={{ left: `${t2Pct}%` }}
+              />
 
               <div className="mt-1 flex justify-between text-[10px] text-white/45 tabular-nums">
                 <span>1★ {star1}</span>
@@ -305,9 +359,8 @@ export function TopBar(props: {
           </div>
         )}
 
-        {/* ✅ Mobil score csík: csak GAME-ben */}
         {isGame && (
-          <div className="sm:hidden px-1 mt-1">
+          <div className="md:hidden px-1 mt-1">
             <div className="flex items-center justify-between text-[11px] text-white/80 tabular-nums">
               <span>
                 {score}/{targetScore}
@@ -317,7 +370,10 @@ export function TopBar(props: {
             <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full bg-red-600/80"
-                style={{ width: `${progressPct}%`, transition: "width 180ms ease-out" }}
+                style={{
+                  width: `${progressPct}%`,
+                  transition: "width 180ms ease-out",
+                }}
               />
             </div>
           </div>

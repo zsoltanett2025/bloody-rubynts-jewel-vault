@@ -1,10 +1,10 @@
-// src/components/game/useMatch3.ts
 import { useState, useCallback, useEffect, useRef } from "react";
 import { playSound, type SfxName } from "../../utils/audioManager";
 import { getShardConfig } from "../../utils/shards";
 import { getLevelConfig } from "./levelConfig";
+import { getLevelRules } from "./levels";
 
-console.log("useMatch3 loaded v-DEAD-WATCHDOG-FIXED-11PLUS-OK");
+console.log("useMatch3 loaded v-STABLE-NO-RUNTIME");
 
 export type GemType = "chest" | (string & {});
 export type PowerType = "stripe_h" | "stripe_v" | "bomb" | "rainbow";
@@ -37,6 +37,17 @@ export type ScorePop = {
   y: number;
   value: number;
 };
+
+let __gid = 0;
+function newId() {
+  // @ts-ignore
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    // @ts-ignore
+    return crypto.randomUUID();
+  }
+  __gid += 1;
+  return `id_${Date.now()}_${__gid}_${Math.random().toString(16).slice(2)}`;
+}
 
 // ---------- seeded rng ----------
 function mulberry32(seed: number) {
@@ -73,7 +84,7 @@ const generateRandomGem = (x: number, y: number, activeTypes: GemType[], chanceF
   const pool = activeTypes.length > 0 ? activeTypes : GEM_TYPES_ALL;
 
   return {
-    id: Math.random().toString(36).slice(2, 11),
+    id: newId(),
     type: isChest ? "chest" : pool[Math.floor(Math.random() * pool.length)],
     x,
     y,
@@ -309,57 +320,6 @@ function getGemCountForLevel(level: number) {
   return clamp(want, 5, Math.min(12, GEM_TYPES_ALL.length));
 }
 
-function findFirstMove(gems: Gem[], size: number, mask: boolean[][]) {
-  const cleaned = normalizeGemsToMask(gems, size, mask);
-  const grid = buildGrid(size, mask, cleaned);
-
-  const dirs: Array<[number, number]> = [
-    [1, 0],
-    [0, 1],
-  ];
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (!mask[y]?.[x]) continue;
-      const a = grid[y][x];
-      if (!a || a.type === "chest") continue;
-
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
-        if (!mask[ny]?.[nx]) continue;
-
-        const b = grid[ny][nx];
-        if (!b || b.type === "chest") continue;
-
-        // swap
-        grid[y][x] = b;
-        grid[ny][nx] = a;
-
-        const swapped: Gem[] = [];
-        for (let yy = 0; yy < size; yy++) {
-          for (let xx = 0; xx < size; xx++) {
-            if (!mask[yy]?.[xx]) continue;
-            const g = grid[yy][xx];
-            if (g) swapped.push({ ...g, x: xx, y: yy });
-          }
-        }
-
-        const ok = findMatches(swapped, size, mask).length > 0;
-
-        // revert
-        grid[y][x] = a;
-        grid[ny][nx] = b;
-
-        if (ok) return { from: { x, y, type: a.type }, to: { x: nx, y: ny, type: b.type } };
-      }
-    }
-  }
-
-  return null;
-}
-
 /* ===========================
    ✅ POWERUP HELPERS
    =========================== */
@@ -508,13 +468,11 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
    ✅ HOOK
    =========================== */
 
-// ✅ active = csak akkor fusson a watchdog/auto shuffle, amikor tényleg GAME képernyőn vagyunk
 export const useMatch3 = (active: boolean = true) => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
   const [isShuffling, setIsShuffling] = useState(false);
 
-  // ✅ Stars ref (mindig friss, UI-nak hasznos)
   const starsRef = useRef(0);
   useEffect(() => {
     starsRef.current = stars;
@@ -596,38 +554,15 @@ export const useMatch3 = (active: boolean = true) => {
     } catch {}
   }, []);
 
-  // ✅ dead-board timeout ref (ne fusson Map/Menu alatt)
-  const shuffleTimeoutRef = useRef<number | null>(null);
-
-  // ✅ ha nem aktív a játék képernyő, állítsuk le a pending shuffle-t
-  useEffect(() => {
-    if (active) return;
-
-    if (shuffleTimeoutRef.current) {
-      window.clearTimeout(shuffleTimeoutRef.current);
-      shuffleTimeoutRef.current = null;
-    }
-
-    // UI state takarítás (biztonságos)
-    setIsShuffling(false);
-    setSelectedGem(null);
-  }, [active]);
-
-  // ✅ cleanup unmount
-  useEffect(() => {
-    return () => {
-      if (shuffleTimeoutRef.current) window.clearTimeout(shuffleTimeoutRef.current);
-    };
-  }, []);
-
-  // ✅ mindig state + ref együtt (HUD ne “0”-zzon)
   const setMovesSynced = useCallback((next: number | ((m: number) => number)) => {
-    setMoves((prev) => {
-      const value = typeof next === "function" ? (next as (m: number) => number)(prev) : next;
-      const clamped = Math.max(0, Math.floor(value));
-      movesRef.current = clamped;
-      return clamped;
-    });
+    const prev = movesRef.current;
+    const value = typeof next === "function" ? (next as (m: number) => number)(prev) : next;
+    const clamped = Math.max(0, Math.floor(value));
+
+    movesRef.current = clamped;
+    setMoves(clamped);
+
+    return clamped;
   }, []);
 
   const setScoreSynced = useCallback((next: number | ((s: number) => number)) => {
@@ -685,7 +620,12 @@ export const useMatch3 = (active: boolean = true) => {
     });
   }, []);
 
-  // Timer tick
+  useEffect(() => {
+    if (mode !== "moves") return;
+    if (gameOver) return;
+    if (moves <= 0) setGameOver(true);
+  }, [mode, moves, gameOver]);
+
   useEffect(() => {
     if (mode !== "timed") return;
     if (gameOver) return;
@@ -736,7 +676,9 @@ export const useMatch3 = (active: boolean = true) => {
         const MAX_CASCADES = 30;
 
         while (true) {
-          const { matches, createPower } = analyzeMatchesAndPower(activeGems, size, m);
+          const { matches, createPower: rawCreatePower } = analyzeMatchesAndPower(activeGems, size, m);
+          const createPower = lvl <= 10 && rawCreatePower?.power === "bomb" ? undefined : rawCreatePower;
+
           if (matches.length === 0) break;
 
           cascades++;
@@ -760,7 +702,7 @@ export const useMatch3 = (active: boolean = true) => {
           triggerMatchFx(
             Array.from(clearIds),
             clearedGems.slice(0, 8).map((gg) => ({
-              id: `${Date.now()}_${gg.id}`,
+              id: `p_${newId()}_${gg.id}`,
               x: gg.x,
               y: gg.y,
               value: 10 * combo,
@@ -817,6 +759,8 @@ export const useMatch3 = (active: boolean = true) => {
 
       setFlashIds([]);
       setScorePops([]);
+      setSelectedGem(null);
+      setFoundChests(0);
 
       const cfg = getLevelConfig(lvl, GEM_TYPES_ALL.length);
       setBoardSize(cfg.boardSize);
@@ -828,8 +772,8 @@ export const useMatch3 = (active: boolean = true) => {
       setActiveTypes(pool);
 
       const shardCfg = getShardConfig(lvl);
+      const rules = getLevelRules(lvl);
 
-      // ✅ MOVES: egy helyen számoljuk ki + state+ref sync
       let nextMoves = 0;
 
       if (shardCfg) {
@@ -843,31 +787,28 @@ export const useMatch3 = (active: boolean = true) => {
         setTimeLimitSec(0);
         setTimeLeftSec(0);
 
-        const EARLY_MOVES: Record<number, number> = {
-          1: 12,
-          2: 14,
-          3: 16,
-          4: 18,
-          5: 20,
-        };
-
-        if (EARLY_MOVES[lvl]) {
-          nextMoves = EARLY_MOVES[lvl];
+        if (lvl <= 120) {
+          if (lvl <= 10) nextMoves = 14;
+          else if (lvl <= 30) nextMoves = 16;
+          else if (lvl <= 60) nextMoves = 18;
+          else if (lvl <= 90) nextMoves = 20;
+          else nextMoves = 22;
         } else {
-          const base = 32 - Math.floor((cfg.gemCount - 5) * 1.5);
-          const rnd = Math.floor(Math.random() * 5) - 2;
-          nextMoves = clamp(base + rnd, 18, 34);
+          const base = 30 - Math.floor((cfg.gemCount - 5) * 1.2);
+          const rnd = Math.floor(Math.random() * 3) - 1;
+          nextMoves = clamp(base + rnd, 16, 30);
         }
       }
 
       setMovesSynced(nextMoves);
 
-      setTargetScore(500 + lvl * 250);
+      // ✅ FIX: targetScore sosem lehet 0 (különben instant 1★/win)
+      // Ha rules.goal.type !== "score", akkor is adunk egy minimális célpontot.
+      const rawTarget = rules.goal.type === "score" ? (rules.goal as any).target : 0;
+      const safeTarget = Math.max(100, Math.floor(Number(rawTarget) || 0));
+      setTargetScore(safeTarget);
 
       setScoreSynced(0);
-
-      setFoundChests(0);
-      setSelectedGem(null);
 
       const resetProgress: GoalProgress = { score: 0, chests: 0, cleared: {} };
       setProgress(resetProgress);
@@ -885,9 +826,7 @@ export const useMatch3 = (active: boolean = true) => {
         const size = boardSizeRef.current;
         const m = maskRef.current;
 
-        if (findMatches(clean, size, m).length > 0) {
-          processMatches(clean, lvl);
-        }
+        if (findMatches(clean, size, m).length > 0) processMatches(clean, lvl);
       }, 0);
     },
     [processMatches, ensurePlayable, setMovesSynced, setScoreSynced]
@@ -896,6 +835,7 @@ export const useMatch3 = (active: boolean = true) => {
   const shuffleBoard = useCallback(async () => {
     if (shuffleUsesRef.current <= 0 || isProcessing || isShuffling) return;
 
+    setIsShuffling(true);
     try {
       const size = boardSizeRef.current;
       const m = maskRef.current;
@@ -910,15 +850,17 @@ export const useMatch3 = (active: boolean = true) => {
 
       await wait(220);
       await processMatches(shuffled, levelRef.current);
-    } catch {}
+    } finally {
+      setIsShuffling(false);
+    }
   }, [isProcessing, isShuffling, processMatches]);
 
   const selectGem = useCallback(
     async (gem: Gem) => {
       if (!active) return;
-
       if (isProcessing || isShuffling) return;
-      if (movesRef.current <= 0) return;
+
+      if (mode === "moves" && movesRef.current <= 0) return;
       if (mode === "timed" && timeLeftSec <= 0) return;
       if (gameOver) return;
 
@@ -936,7 +878,7 @@ export const useMatch3 = (active: boolean = true) => {
           return next;
         });
 
-        triggerMatchFx([gem.id], [{ id: `${Date.now()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 }]);
+        triggerMatchFx([gem.id], [{ id: `p_${newId()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 }]);
 
         addScore(500);
 
@@ -979,6 +921,11 @@ export const useMatch3 = (active: boolean = true) => {
         return;
       }
 
+      // ✅ FIX: csak EGYSZER vonunk le lépést egy szomszédos csere-kísérletnél
+      if (mode === "moves") {
+        setMovesSynced((mm) => Math.max(0, mm - 1));
+      }
+
       setIsProcessing(true);
 
       const original = gemsRef.current.map((g) => ({ ...g }));
@@ -993,42 +940,31 @@ export const useMatch3 = (active: boolean = true) => {
 
       const matches = findMatches(swapped, size, m);
 
-      // -----------------------------
-      // ❌ NINCS MATCH
-      // -----------------------------
+      // nincs match
       if (matches.length === 0) {
         const a = swapped.find((gg) => gg.id === selectedGem.id);
         const b = swapped.find((gg) => gg.id === gem.id);
-
         const hasPower = !!a?.power || !!b?.power;
 
-        // ✅ Simán rossz swap (nincs power)
         if (!hasPower) {
           setGems(original);
           setSelectedGem(null);
           setIsProcessing(false);
 
-          // ✅ dead-board -> automata keverés, hogy legyen lépés
           if (!hasAnyMove(original, size, m)) {
             setIsShuffling(true);
             setSelectedGem(null);
-
             const fixed = ensurePlayable(original, levelRef.current);
-
-            if (shuffleTimeoutRef.current) window.clearTimeout(shuffleTimeoutRef.current);
-            shuffleTimeoutRef.current = window.setTimeout(() => {
+            window.setTimeout(() => {
               if (!active) return;
               setGems(fixed);
               setIsShuffling(false);
             }, 300);
-
-            return;
           }
-
           return;
         }
 
-        // ✅ Power swap (match nélkül is robbanhat)
+        // power aktiválás
         const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
 
         if (powers.includes("bomb")) safePlay("bomb");
@@ -1047,7 +983,7 @@ export const useMatch3 = (active: boolean = true) => {
         triggerMatchFx(
           Array.from(clearIds),
           cleared.slice(0, 8).map((gg) => ({
-            id: `${Date.now()}_${gg.id}_P`,
+            id: `p_${newId()}_${gg.id}_P`,
             x: gg.x,
             y: gg.y,
             value: 20,
@@ -1079,11 +1015,8 @@ export const useMatch3 = (active: boolean = true) => {
         return;
       }
 
-      // -----------------------------
-      // ✅ VAN MATCH
-      // -----------------------------
+      // van match
       safePlay("click");
-      setMovesSynced((mm) => Math.max(0, mm - 1));
       setSelectedGem(null);
 
       addScore(5);
@@ -1109,13 +1042,15 @@ export const useMatch3 = (active: boolean = true) => {
     ]
   );
 
-  // ✅ Stars only (NO "won" flag!)
   useEffect(() => {
     if (gameOver) return;
 
-    const star1 = targetScore;
-    const star2 = Math.floor(targetScore * 1.5);
-    const star3 = Math.floor(targetScore * 2);
+    // ✅ extra safety: ha bármiért 0 lenne, ne legyen instant csillag
+    const safeTarget = Math.max(100, Math.floor(Number(targetScore) || 0));
+
+    const star1 = safeTarget;
+    const star2 = Math.floor(safeTarget * 1.5);
+    const star3 = Math.floor(safeTarget * 2);
 
     const earnedStars =
       progress.score >= star3 ? 3 : progress.score >= star2 ? 2 : progress.score >= star1 ? 1 : 0;
@@ -1123,79 +1058,11 @@ export const useMatch3 = (active: boolean = true) => {
     if (earnedStars !== stars) setStars(earnedStars);
   }, [gameOver, progress.score, targetScore, stars]);
 
-  // ✅ WATCHDOG: csak GAME képernyőn fusson
-  const deadFixingRef = useRef(false);
-  const lastWdRef = useRef<{ level: number; possible: number; dead: boolean } | null>(null);
-
-  const deadStreakRef = useRef(0);
-  const lastShuffleAtRef = useRef(0);
-
-  useEffect(() => {
-    if (!active) return;
-
-    const id = window.setInterval(() => {
-      const size = boardSizeRef.current;
-      const m = maskRef.current;
-      const g = gemsRef.current;
-
-      if (!active) return;
-
-      if (deadFixingRef.current) return;
-      if (processingRef.current) return;
-      if (isProcessing || gameOver) return;
-      if (selectedGem) return;
-      if (!g || g.length === 0) return;
-
-      const possible = countPossibleMoves(g, size, m);
-      const dead = possible <= 0;
-
-      const last = lastWdRef.current;
-      const changed = !last || last.level !== levelRef.current || last.possible !== possible || last.dead !== dead;
-
-      if (dead || changed) {
-        const hint = findFirstMove(g, size, m);
-        console.log("[WATCHDOG]", {
-          level: levelRef.current,
-          size,
-          possibleMoves: possible,
-          dead,
-          gemsLen: g.length,
-          hint,
-        });
-        lastWdRef.current = { level: levelRef.current, possible, dead };
-      }
-
-      if (!dead) {
-        deadStreakRef.current = 0;
-        return;
-      }
-
-      deadStreakRef.current += 1;
-      if (deadStreakRef.current < 2) return;
-
-      const now = Date.now();
-      if (now - lastShuffleAtRef.current < 1200) return;
-      lastShuffleAtRef.current = now;
-
-      deadFixingRef.current = true;
-      try {
-        const fixed = ensurePlayable(g, levelRef.current);
-        setGems(fixed);
-        deadStreakRef.current = 0;
-      } finally {
-        deadFixingRef.current = false;
-      }
-    }, 450);
-
-    return () => window.clearInterval(id);
-  }, [active, ensurePlayable, isProcessing, gameOver, selectedGem]);
-
   return {
     gameOver,
     won: false,
     stars,
 
-    // ✅ új jelzések az App/UI-nak
     passed: stars >= 1,
     canGoNext: stars >= 3,
 

@@ -1,10 +1,9 @@
 // src/App.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { t } from "./i8n/i18n";
-
+import { IntroScreen } from "./components/IntroScreen";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import { playSound, unlockAudio, playMusic } from "./utils/audioManager";
-import { useMatch3 } from "./components/game/useMatch3";
-import { GemComponent } from "./components/game/GemComponent";
 import { GameProvider, useGame } from "./components/game/GameState";
 import { LevelMap } from "./components/game/LevelMap";
 import { WalletModal } from "./components/game/WalletModal";
@@ -15,35 +14,57 @@ import { assetUrl } from "./utils/assetUrl";
 import { StoryOverlay } from "./components/game/StoryOverlay";
 import { StorySidePanels } from "./components/game/StorySidePanels";
 import { isShardLevel, markShardFound } from "./utils/shards";
+
 import { RubyProgressPanel } from "./components/game/RubyProgressPanel";
-import { isTrial } from "./app/mode";
-import { TopLeftLinks } from "./ui/TopLeftLinks";
-import { InfoModal } from "./ui/InfoModal";
-import { InfoButton } from "./ui/InfoButton";
 import confetti from "canvas-confetti";
+import { RegisterPage } from "./pages/RegisterPage";
+import { LoginPage as LoginPageComp } from "./pages/LoginPage";
+import { useAuth } from "./app/auth/AuthProvider";
+
+import { useMatch3 } from "./components/game/useMatch3";
+import { GemComponent } from "./components/game/GemComponent";
+
+import {
+  rewardLevelOnce,
+  isHardLevel67,
+  getUserKeyFromStorage,
+  grantChestReward,
+} from "./app/rewards/brRewards";
 
 const LS_CURRENT = "br_currentLevel";
 const LS_UNLOCKED = "br_unlockedLevel";
+const LS_SEEN_INTRO = "br_seenIntro";
+const LS_SEEN_WELCOME = "br_seenWelcome";
 
-const TOTAL_LEVELS = 200; // ✅ teszthez
+// ✅ shards local state persistence (safe, doesn’t break existing shards.ts)
+const LS_SHARDS_FOUND = "br_shards_found_levels_v1";
+
+// 15 shard levels (full saga plan – ok even if TOTAL_LEVELS is smaller for now)
+const SHARD_LEVELS = [67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000];
+
+const TOTAL_LEVELS = 200;
 
 const MUSIC_MENU = assetUrl("assets/audio/music/music_menu.mp3");
 const MUSIC_BOSS_01 = assetUrl("assets/audio/music/music_boss_01.mp3");
 const MUSIC_BOSS_02 = assetUrl("assets/audio/music/music_boss_02.mp3");
 const MUSIC_BOSS_03 = assetUrl("assets/audio/music/music_boss_03.mp3");
 const MUSIC_BOSS_04 = assetUrl("assets/audio/music/music_boss_04.mp3");
-const MUSIC_BOSS_05 = assetUrl("assets/audio/music/music_boss.mp3");
-
+const MUSIC_BOSS_05 = assetUrl("assets/audio/music/music_boss_05.mp3");
 const MUSIC_GAME_01 = assetUrl("assets/audio/music/music_game_01.mp3");
-const MUSIC_GAME_02 = assetUrl("assets/audio/music/music_game.mp3");
-const MUSIC_MENU_71 = assetUrl("assets/audio/music/music_menu_01.mp3");
+const MUSIC_GAME_02 = assetUrl("assets/audio/music/music_game_02.mp3");
+const MUSIC_MENU_01 = assetUrl("assets/audio/music/music_menu_01.mp3");
 
 function clampLevel(n: number) {
   const v = Number(n);
   return Number.isFinite(v) && v > 0 ? v : 1;
 }
 
-function pickBgByBlock(list: readonly string[], levelLike: number, blockSize: number, fallback: string) {
+function pickBgByBlock(
+  list: readonly string[],
+  levelLike: number,
+  blockSize: number,
+  fallback: string
+) {
   if (!list || list.length === 0) return fallback;
   const lvl = clampLevel(levelLike);
   const idx = Math.floor((lvl - 1) / blockSize) % list.length;
@@ -80,43 +101,161 @@ function calcStars(score: number, targetScore: number) {
   return score >= star3 ? 3 : score >= star2 ? 2 : score >= star1 ? 1 : 0;
 }
 
-const MainGame = () => {
-  const [trialMsg, setTrialMsg] = useState<string | null>(null);
+function shardIndexForLevel(level: number) {
+  return SHARD_LEVELS.indexOf(clampLevel(level));
+}
+function shardValueByIndex(idx: number) {
+  // 10, 15, 20, ... (simple and clear)
+  return 10 + idx * 5;
+}
+function shardImageByIndex(idx: number) {
+  const n = String(idx + 1).padStart(2, "0");
+  // user’s confirmed path: public/assets/backgrounds/map/ruby/ruby_shard_09.png
+  return assetUrl(`assets/backgrounds/map/ruby/ruby_shard_${n}.png`);
+}
+
+function readShardsFoundFromStorage(): number[] {
+  try {
+    const raw = localStorage.getItem(LS_SHARDS_FOUND);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    const cleaned = arr
+      .map((x) => clampLevel(Number(x)))
+      .filter((x) => Number.isFinite(x) && x > 0);
+    // unique
+    return Array.from(new Set(cleaned));
+  } catch {
+    return [];
+  }
+}
+
+function writeShardsFoundToStorage(levels: number[]) {
+  try {
+    localStorage.setItem(LS_SHARDS_FOUND, JSON.stringify(levels));
+  } catch {}
+}
+
+// ✅ Shards modal (kept inside App.tsx so nothing else is required)
+function ShardsModal(props: {
+  onClose: () => void;
+  foundLevels: number[];
+}) {
+  const foundSet = useMemo(() => new Set(props.foundLevels), [props.foundLevels]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[25000] bg-black/70 flex items-center justify-center p-4"
+      onClick={props.onClose}
+    >
+      <div
+        className="w-full max-w-2xl bg-[#120404] border border-red-900/40 rounded-2xl p-4 text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h3 className="font-bold">Ruby Shards</h3>
+            <div className="text-[11px] text-white/45">
+              Progress:{" "}
+              <span className="text-white/75">
+                {props.foundLevels.length}/{SHARD_LEVELS.length}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={props.onClose}
+            className="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/15 transition"
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          {SHARD_LEVELS.map((lvl, idx) => {
+            const found = foundSet.has(lvl);
+            const value = shardValueByIndex(idx);
+            const img = shardImageByIndex(idx);
+
+            return (
+              <div
+                key={lvl}
+                className={`rounded-xl border p-2 bg-black/30 ${
+                  found ? "border-red-300/50" : "border-white/10"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-[11px] text-white/50">Shard {idx + 1}</div>
+                  <div className={`text-[11px] ${found ? "text-red-200" : "text-white/35"}`}>
+                    {found ? "FOUND" : "LOCKED"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-black/40 border border-white/10 flex items-center justify-center aspect-square overflow-hidden">
+                  {/* If image missing, it will just not show – still safe */}
+                  <img
+                    src={img}
+                    alt={`Ruby shard ${idx + 1}`}
+                    className={`w-full h-full object-contain ${found ? "" : "opacity-40 grayscale"}`}
+                    draggable={false}
+                  />
+                </div>
+
+                <div className="mt-2 text-[11px] text-white/45">
+                  Level: <span className="text-white/70">{lvl}</span>
+                </div>
+                <div className="text-[11px] text-white/45">
+                  Value:{" "}
+                  <span className={found ? "text-red-200 font-semibold" : "text-white/60"}>
+                    {value} BR
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 text-[11px] text-white/40">
+          Tip: shards are earned on shard levels (special challenge stages). When you earn one, you also get the BR value.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   const [lang] = useState<"hu" | "en">("en");
 
   type AppScreen = "menu" | "map" | "game";
   const [screen, setScreen] = useState<AppScreen>("menu");
 
   const {
-    gems,
-    score,
-    targetScore,
-    moves,
-    level,
-    selectedGem,
-    selectGem,
-    startNewGame,
-    shuffleBoard,
-    shuffleUses,
-    mode,
-    timeLeftSec,
-    timeLimitSec,
-    activeGemCount,
-    boardSize,
-    scorePops,
-    flashIds,
-  } = useMatch3(screen === "game") as any;
+    progress,
+    completeLevel,
+    isLoading,
+    lives,
+    maxLives,
+    spendLife,
+    refreshRubyntBalance,
+  } = useGame();
 
-  const { progress, completeLevel, isLoading, lives, maxLives, spendLife } = useGame() as any;
-
-  const [showWallet, setShowWallet] = useState(false);
+  useEffect(() => {
+  refreshRubyntBalance();
+}, [refreshRubyntBalance]);
+ 
+const [showWallet, setShowWallet] = useState(false);
   const [showShop, setShowShop] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
 
   const [endOpen, setEndOpen] = useState(false);
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
+
+  // ✅ Shards UI state + persisted progress
+  const [showShards, setShowShards] = useState(false);
+  const [shardsFoundLevels, setShardsFoundLevels] = useState<number[]>(() => readShardsFoundFromStorage());
+  const shardCount = shardsFoundLevels.length;
 
   const [currentLevel, setCurrentLevel] = useState(() => {
     const raw = localStorage.getItem(LS_CURRENT);
@@ -128,16 +267,24 @@ const MainGame = () => {
     return clampLevel(Number(raw ?? 1));
   });
 
-  // ✅ debug: HUD értékek (csak egyszer)
-  useEffect(() => {
-    console.log("[HUD]", { screen, level, moves, score, targetScore });
-  }, [screen, level, moves, score, targetScore]);
-
-  // ✅ csak egyszer reportoljuk a PASS-t egy adott szinten
-  const [reportedPassLevel, setReportedPassLevel] = useState<number>(0);
-
   useEffect(() => localStorage.setItem(LS_CURRENT, String(currentLevel)), [currentLevel]);
   useEffect(() => localStorage.setItem(LS_UNLOCKED, String(unlockedLevel)), [unlockedLevel]);
+
+  // ✅ keep shards in localStorage
+  useEffect(() => {
+    writeShardsFoundToStorage(shardsFoundLevels);
+  }, [shardsFoundLevels]);
+
+  const addShardFound = useCallback((level: number) => {
+    const L = clampLevel(level);
+    setShardsFoundLevels((prev) => {
+      if (prev.includes(L)) return prev;
+      const next = [...prev, L];
+      // keep stable order by shard list order (nice UI)
+      next.sort((a, b) => SHARD_LEVELS.indexOf(a) - SHARD_LEVELS.indexOf(b));
+      return next;
+    });
+  }, []);
 
   function pickGameMusicByLevel(lvlLike: number): string | null {
     const lvl = clampLevel(lvlLike);
@@ -149,7 +296,7 @@ const MainGame = () => {
     if (lvl >= 41 && lvl <= 50) return MUSIC_BOSS_05;
     if (lvl >= 51 && lvl <= 60) return MUSIC_GAME_01;
     if (lvl >= 61 && lvl <= 70) return MUSIC_GAME_02;
-    if (lvl >= 71 && lvl <= 80) return MUSIC_MENU_71;
+    if (lvl >= 71 && lvl <= 80) return MUSIC_MENU_01;
     return null;
   }
 
@@ -168,28 +315,6 @@ const MainGame = () => {
   }, []);
 
   useEffect(() => {
-    const gtag = (window as any).gtag;
-    if (typeof gtag === "function") {
-      gtag("event", "jewel_vault_loaded");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!trialMsg) return;
-    const id = window.setTimeout(() => setTrialMsg(null), 2500);
-    return () => window.clearTimeout(id);
-  }, [trialMsg]);
-
-  // ✅ Story popup 20-as blokkonként
-  useEffect(() => {
-    if (screen !== "game") return;
-    if ((level - 1) % 20 === 0) {
-      const s = getStoryForLevel(level);
-      if (s) setStoryOpen(true);
-    }
-  }, [screen, level]);
-
-  useEffect(() => {
     const onResize = () => {
       setVw(window.innerWidth);
       setVh(window.innerHeight);
@@ -198,120 +323,40 @@ const MainGame = () => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // ✅ MATCH-3
+  const m3 = useMatch3(screen === "game");
+
+  // ✅ amikor screen vált, frissítsük a balance-t (nem bántja a játék logikát)
   useEffect(() => {
-    if (screen !== "game" && endOpen) setEndOpen(false);
-  }, [screen, endOpen]);
-
-  const lastEndSoundRef = useRef<string>("");
-
-  useEffect(() => {
-    if (!endOpen) {
-      lastEndSoundRef.current = "";
-      return;
-    }
-
-    const key = endWon ? "win" : "defeat";
-
-    if (lastEndSoundRef.current === key) return;
-
-    lastEndSoundRef.current = key;
-    playSound(key);
-
-    // 🎉 KONFETTI CSAK WINNÉL
-    if (key === "win") {
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { x: 0.3, y: 0.6 },
-        colors: ["#b30000", "#ff1a1a", "#990000"],
-      });
-
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { x: 0.7, y: 0.6 },
-        colors: ["#b30000", "#ff1a1a", "#990000"],
-      });
-    }
-  }, [endOpen, endWon]);
-
-  useEffect(() => {
-    let track: string | null;
-    if (screen === "menu" || screen === "map") track = MUSIC_MENU;
-    else track = pickGameMusicByLevel(level);
-
     try {
-      if (track) playMusic(track);
+      refreshRubyntBalance();
     } catch {}
-  }, [screen, level]);
+  }, [screen, refreshRubyntBalance]);
 
-  // ✅ csillag állapot (élőben)
-  const starsNow = useMemo(() => {
-    if (screen !== "game") return 0;
-    return calcStars(score, targetScore);
-  }, [screen, score, targetScore]);
-
-  const passedNow = screen === "game" && starsNow >= 1;
-  const canGoNextNow = screen === "game" && starsNow >= 3;
-
-  // ✅ 1★-nál azonnali PASS (unlock + completeLevel), de a játék mehet tovább
+  // ✅ csak egyszer indítsuk el ugyanazt a levelt
+  const lastStartedRef = useRef<number>(0);
   useEffect(() => {
     if (screen !== "game") return;
-    if (!passedNow) return;
-    if (reportedPassLevel === level) return;
+    if (lastStartedRef.current === currentLevel) return;
+    lastStartedRef.current = currentLevel;
 
-    setReportedPassLevel(level);
-
-    const next = clampLevel(level + 1);
-    setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
-
-    try {
-      completeLevel?.(level, score, starsNow);
-
-      const gtag = (window as any).gtag;
-      if (typeof gtag === "function") {
-        gtag("event", "level_completed", {
-          level,
-          stars: starsNow,
-          score,
-        });
-      }
-
-      if (isShardLevel(level)) markShardFound(level);
-    } catch {}
-  }, [screen, passedNow, reportedPassLevel, level, completeLevel, score, starsNow]);
-
-  // ✅ END MODAL (csak akkor, ha elfogy a lépés / lejár az idő)
-  useEffect(() => {
-    if (screen !== "game") return;
-    if (endOpen) return;
-
-    const timedOut = mode === "timed" && timeLeftSec <= 0;
-    const noMoves = moves === 0;
-
-    if (!timedOut && !noMoves) return;
-
-    const passed = starsNow >= 1;
-
-    setEndWon(passed);
-    setEndStars(starsNow);
-    setEndOpen(true);
-  }, [screen, endOpen, mode, timeLeftSec, moves, starsNow]);
+    m3.startNewGame(currentLevel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, currentLevel]);
 
   const tileSize = useMemo(() => {
-    const bs = boardSize || 8;
+    const bs = m3.boardSize || 8;
     return Math.max(40, Math.min(64, Math.floor(Math.min(vw - 32, vh * 0.62) / bs)));
-  }, [vw, vh, boardSize]);
-
-  const boardPx = tileSize * (boardSize || 8);
+  }, [vw, vh, m3.boardSize]);
 
   const desiredBg = useMemo(() => {
     const fallback = GAME_ASSETS.menuBackground;
 
     if (screen === "menu") return GAME_ASSETS.menuBackground;
-    if (screen === "map") return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
-    return pickBgByBlock(GAME_ASSETS.storyBackgrounds, level, 20, fallback);
-  }, [screen, currentLevel, level]);
+    if (screen === "map")
+      return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
+    return pickBgByBlock(GAME_ASSETS.storyBackgrounds, m3.level, 20, fallback);
+  }, [screen, currentLevel, m3.level]);
 
   const [bgUrl, setBgUrl] = useState<string>(GAME_ASSETS.menuBackground);
 
@@ -331,6 +376,160 @@ const MainGame = () => {
     };
   }, [desiredBg]);
 
+  // zene
+  useEffect(() => {
+    let track: string | null;
+    if (screen === "menu" || screen === "map") track = MUSIC_MENU;
+    else track = pickGameMusicByLevel(m3.level);
+
+    try {
+      if (track) playMusic(track);
+    } catch {}
+  }, [screen, m3.level]);
+
+  // story popup
+  useEffect(() => {
+    if (screen !== "game") return;
+    if ((m3.level - 1) % 20 === 0) {
+      const s = getStoryForLevel(m3.level);
+      if (s) setStoryOpen(true);
+    }
+  }, [screen, m3.level]);
+
+  const starsNow = useMemo(() => {
+    if (screen !== "game") return 0;
+    return calcStars(m3.score, m3.targetScore);
+  }, [screen, m3.score, m3.targetScore]);
+
+  // ✅ CHEST reward figyelés (useMatch3 módosítás nélkül)
+  // Megpróbáljuk megtalálni a chest számlálót több néven is.
+  const chestCount = useMemo(() => {
+    const v = (m3 as any)?.progress?.chests ?? (m3 as any)?.foundChests ?? 0;
+    return typeof v === "number" && Number.isFinite(v) ? v : 0;
+  }, [m3]);
+
+  const prevChestRef = useRef<number>(0);
+  useEffect(() => {
+    if (screen !== "game") return;
+
+    const userKey = getUserKeyFromStorage();
+    if (!userKey || userKey === "guest") return;
+
+    const prev = prevChestRef.current;
+    if (chestCount > prev) {
+      const delta = chestCount - prev;
+
+      // ✅ stable chest rewards: seeded + ledger protected
+      for (let i = 0; i < delta; i++) {
+        const chestIndex = prev + i + 1; // 1..N
+        try {
+          grantChestReward(userKey, m3.level, chestIndex);
+        } catch {}
+      }
+
+      try {
+        refreshRubyntBalance();
+      } catch {}
+    }
+
+    prevChestRef.current = chestCount;
+  }, [screen, chestCount, refreshRubyntBalance, m3.level]);
+
+  // pass report (1★) - egyszer
+  const reportedPassRef = useRef<number>(0);
+  useEffect(() => {
+    if (screen !== "game") return;
+    if (starsNow < 1) return;
+    if (reportedPassRef.current === m3.level) return;
+
+    reportedPassRef.current = m3.level;
+
+    const next = clampLevel(m3.level + 1);
+    setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
+
+    const userKey = getUserKeyFromStorage();
+
+    const base = Math.max(1, Math.min(3, starsNow));
+    rewardLevelOnce(userKey, m3.level, base, "level_clear");
+
+    // ✅ shard bonus now follows shard index: 10, 15, 20, ...
+    if (isShardLevel(m3.level)) {
+      const idx = shardIndexForLevel(m3.level);
+      const shardBonus = idx >= 0 ? shardValueByIndex(idx) : 10;
+
+      rewardLevelOnce(userKey, m3.level + 1000000, shardBonus, "shard_bonus");
+
+      // track in UI progress
+      addShardFound(m3.level);
+    }
+
+    if (isHardLevel67(m3.level)) {
+      rewardLevelOnce(userKey, m3.level + 2000000, 20, "hard_level_bonus");
+    }
+
+    try {
+      refreshRubyntBalance();
+    } catch {}
+
+    try {
+      completeLevel?.(m3.level, m3.score, starsNow);
+      if (isShardLevel(m3.level)) markShardFound(m3.level);
+    } catch {}
+  }, [screen, starsNow, m3.level, m3.score, completeLevel, refreshRubyntBalance, addShardFound]);
+
+  // end modal - egyszer
+  const endShownForRef = useRef<string>("");
+  useEffect(() => {
+    if (screen !== "game") return;
+
+    const timedOut = m3.mode === "timed" && m3.timeLeftSec <= 0;
+    const noMoves = m3.mode === "moves" && m3.moves <= 0;
+    if (!timedOut && !noMoves) return;
+
+    const key = `${m3.level}:${timedOut ? "t" : "m"}`;
+    if (endShownForRef.current === key) return;
+    endShownForRef.current = key;
+
+    const passed = starsNow >= 1;
+    setEndWon(passed);
+    setEndStars(starsNow);
+    setEndOpen(true);
+  }, [screen, m3.level, m3.mode, m3.timeLeftSec, m3.moves, starsNow]);
+
+  // end sound + confetti (egyszer)
+  const lastEndSoundRef = useRef<string>("");
+  useEffect(() => {
+    if (!endOpen) {
+      lastEndSoundRef.current = "";
+      return;
+    }
+    const key = endWon ? "win" : "defeat";
+    if (lastEndSoundRef.current === key) return;
+
+    lastEndSoundRef.current = key;
+    playSound(key);
+
+    if (key === "win") {
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { x: 0.3, y: 0.6 },
+        colors: ["#b30000", "#ff1a1a", "#990000"],
+      });
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { x: 0.7, y: 0.6 },
+        colors: ["#b30000", "#ff1a1a", "#990000"],
+      });
+    }
+  }, [endOpen, endWon]);
+
+  useEffect(() => {
+    if (screen !== "game" && endOpen) setEndOpen(false);
+    if (screen !== "game") endShownForRef.current = "";
+  }, [screen, endOpen]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-gothic animate-pulse">
@@ -339,39 +538,14 @@ const MainGame = () => {
     );
   }
 
-  const story = getStoryForLevel(level);
+  const story = getStoryForLevel(m3.level);
 
-  // ✅ TopBar-hoz: mindig valós értékek (NEM 0-zunk)
-  const uiLevel = level;
-  const uiScore = score;
-  const uiTarget = targetScore;
-  const uiMoves = moves;
-  const uiMode = screen === "game" ? mode : "moves";
-  const uiTimeLeft = screen === "game" ? timeLeftSec : 0;
-  const uiTimeLimit = screen === "game" ? timeLimitSec : 0;
-  const uiActiveGemCount = screen === "game" ? activeGemCount : undefined;
+  // retry / next lock
+  const endActionLockRef = useRef(false);
 
   return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
-      {isTrial && (
-        <div className="hidden md:block">
-          <TopLeftLinks />
-        </div>
-      )}
-
-      {trialMsg && (
-        <div className="fixed left-1/2 top-40 z-[9999] -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
-          {trialMsg}
-        </div>
-      )}
-
-      {isTrial && (
-        <div className="fixed left-4 bottom-16 z-[9997] text-white/30 text-xs font-mono tracking-widest pointer-events-none">
-          TRIAL BUILD
-        </div>
-      )}
-
-      {/* ✅ FULLSCREEN háttér */}
+      {/* háttér */}
       <div
         className="fixed inset-0 z-0 transition-opacity duration-700 pointer-events-none"
         style={{
@@ -385,10 +559,15 @@ const MainGame = () => {
       />
       <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/40 via-red-950/20 to-black/70 md:from-black/20 md:via-red-950/10 md:to-black/40 pointer-events-none" />
 
-      {/* ✅ TARTALOM */}
+      {/* content */}
       <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center pt-16 md:pt-24">
         {screen === "game" && story && (
-          <StorySidePanels leftText={story.left} rightText={story.right} showKnights showDragons={level >= 50} />
+          <StorySidePanels
+            leftText={story.left}
+            rightText={story.right}
+            showKnights
+            showDragons={m3.level >= 50}
+          />
         )}
 
         {screen === "menu" && (
@@ -397,7 +576,9 @@ const MainGame = () => {
               <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-red-300 to-red-600 font-gothic tracking-wider uppercase">
                 {t("menu.title")}
               </h1>
-              <p className="text-red-200/60 text-sm mt-2 tracking-[0.3em] uppercase font-gothic">Bloody Rubynts Saga</p>
+              <p className="text-red-200/60 text-sm mt-2 tracking-[0.3em] uppercase font-gothic">
+                Bloody Rubynts Saga
+              </p>
             </div>
 
             <button
@@ -410,47 +591,15 @@ const MainGame = () => {
             >
               {t("menu.enter")}
             </button>
-
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  playSound("click");
-                  if (isTrial) {
-                    setTrialMsg("Trial: Shop coming soon.");
-                    return;
-                  }
-                  setShowShop(true);
-                }}
-                className="p-4 bg-black/40 backdrop-blur rounded-full border border-red-900/30 hover:bg-red-900/20 transition-colors"
-                aria-label="Shop"
-              >
-                {t("menu.shop")}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playSound("click");
-                  if (isTrial) {
-                    setTrialMsg("Trial: Wallet coming soon.");
-                    return;
-                  }
-                  setShowWallet(true);
-                }}
-                className="p-4 bg-black/40 backdrop-blur rounded-full border border-red-900/30 hover:bg-red-900/20 transition-colors"
-                aria-label="Wallet"
-              >
-                {t("menu.wallet")}
-              </button>
-            </div>
           </div>
         )}
 
         {screen === "map" && (
-          <div className="relative w-full" style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}>
+          <div
+            className="relative w-full"
+            style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}
+          >
             <RubyProgressPanel />
-
             {story && <StorySidePanels leftText={story.left} rightText={story.right} showKnights={true} />}
 
             <div className="w-full h-full">
@@ -460,93 +609,51 @@ const MainGame = () => {
                 unlockedLevel={unlockedLevel}
                 onSelectLevel={(l: number) => {
                   const L = typeof lives === "number" ? lives : 3;
-
                   if (L <= 0) {
                     playSound("click");
-                    if (isTrial) setTrialMsg("Trial: Shop coming soon.");
-                    else setShowShop(true);
+                    setShowShop(true);
                     return;
                   }
 
                   playSound("click");
                   setEndOpen(false);
-                  setEndWon(false);
-                  setEndStars(0);
+
+                  reportedPassRef.current = 0;
+                  endShownForRef.current = "";
+                  endActionLockRef.current = false;
 
                   const picked = clampLevel(l);
                   setCurrentLevel(picked);
-                  startNewGame(picked);
 
-                  const gtag = (window as any).gtag;
-                  if (typeof gtag === "function") {
-                    gtag("event", "level_started", { level: picked });
-                  }
-
+                  lastStartedRef.current = 0;
                   setScreen("game");
                 }}
               />
             </div>
-
-            <a
-              href="https://discord.gg/YOUR_INVITE"
-              target="_blank"
-              rel="noreferrer"
-              className="fixed bottom-4 right-4 z-[9999] w-12 h-12 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-md grid place-items-center hover:bg-black/70 active:scale-95 transition"
-              title="Send feedback"
-            >
-              💬
-            </a>
           </div>
         )}
 
         {screen === "game" && (
-          <div className="flex flex-col items-center gap-4 w-full pt-20 md:pt-24">
-            <div className="relative mt-2" style={{ width: boardPx, height: boardPx }}>
-              {gems.map((gem: any) => (
+          <>
+            <div
+              className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10"
+              style={{
+                width: m3.boardSize * tileSize,
+                height: m3.boardSize * tileSize,
+              }}
+            >
+              {m3.gems.map((g) => (
                 <GemComponent
-                  key={gem.id}
-                  gem={gem}
-                  isSelected={selectedGem?.id === gem.id}
-                  isFlashing={Array.isArray(flashIds) ? flashIds.includes(gem.id) : false}
+                  key={g.id}
+                  gem={g}
                   size={tileSize}
-                  onClick={() => selectGem(gem)}
-                  level={level}
+                  isSelected={m3.selectedGem?.id === g.id}
+                  isFlashing={m3.flashIds.includes(g.id)}
+                  onClick={() => m3.selectGem(g)}
+                  level={m3.level}
                 />
               ))}
-
-              {Array.isArray(scorePops) &&
-                scorePops.map((p: any) => (
-                  <div
-                    key={p.id}
-                    className="br-score-pop"
-                    style={{
-                      left: (p.x + 0.5) * tileSize,
-                      top: (p.y + 0.55) * tileSize,
-                    }}
-                  >
-                    +{p.value}
-                  </div>
-                ))}
             </div>
-
-            {canGoNextNow && (
-              <button
-                type="button"
-                onClick={() => {
-                  playSound("click");
-                  setEndOpen(false);
-
-                  const next = clampLevel(level + 1);
-                  setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
-                  setCurrentLevel(next);
-                  startNewGame(next);
-                  setScreen("game");
-                }}
-                className="px-8 py-3 bg-gradient-to-r from-red-900 to-red-700 hover:from-red-800 hover:to-red-600 text-white rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 text-base font-gothic border border-red-500/30"
-              >
-                {lang === "hu" ? "Következő pálya (3★)" : "Next Level (3★)"}
-              </button>
-            )}
 
             <button
               type="button"
@@ -554,66 +661,75 @@ const MainGame = () => {
                 playSound("click");
                 setScreen("map");
               }}
-              className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mb-8"
+              className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mt-6 mb-8"
             >
               {lang === "hu" ? "Vissza a térképre" : "Back to map"}
             </button>
-          </div>
+          </>
         )}
       </div>
-
-      {isTrial && <InfoButton onClick={() => setInfoOpen(true)} />}
-      {isTrial && <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />}
 
       {/* TOPBAR */}
       <TopBar
         variant={screen === "game" ? "game" : screen === "map" ? "map" : "menu"}
-        isTrial={isTrial}
         onBack={
           screen === "game"
             ? () => {
                 playSound("click");
                 setScreen("map");
               }
-            : screen === "map"
-              ? () => {
-                  playSound("click");
-                  setScreen("menu");
-                }
-              : undefined
+            : undefined
         }
         onHome={() => {
           playSound("click");
           setScreen("menu");
         }}
-        rubyntBalance={progress?.rubyntBalance ?? 0}
-        onOpenWallet={() => {
+        onLogout={() => {
           playSound("click");
-          if (isTrial) {
-            setTrialMsg("Trial: Wallet coming soon.");
-            return;
-          }
-          setShowWallet(true);
+          onLogout();
         }}
-        score={uiScore}
-        targetScore={uiTarget}
-        moves={uiMoves}
-        level={uiLevel}
+       onOpenShop={() => {
+  playSound("click");
+  try {
+    refreshRubyntBalance();
+  } catch {}
+  setShowShop(true);
+}}
+        shardCount={shardCount}
+        onOpenShards={() => {
+  playSound("click");
+  try {
+    refreshRubyntBalance();
+  } catch {}
+  setShowShards(true);
+}}
+        rubyntBalance={progress?.rubyntBalance ?? 0}
+      onOpenWallet={() => {
+  playSound("click");
+  try {
+    refreshRubyntBalance();
+  } catch {}
+  setShowWallet(true);
+}}
+        score={screen === "game" ? m3.score : 0}
+        targetScore={screen === "game" ? m3.targetScore : 0}
+        moves={screen === "game" ? m3.moves : 0}
+        level={screen === "game" ? m3.level : currentLevel}
         lives={typeof lives === "number" ? lives : 3}
         maxLives={typeof maxLives === "number" ? maxLives : 3}
         onShuffle={
           screen === "game"
             ? () => {
                 playSound("click");
-                shuffleBoard();
+                m3.shuffleBoard();
               }
             : undefined
         }
-        shuffleUses={screen === "game" ? shuffleUses : 0}
-        mode={uiMode as any}
-        timeLeftSec={uiTimeLeft}
-        timeLimitSec={uiTimeLimit}
-        activeGemCount={uiActiveGemCount}
+        shuffleUses={screen === "game" ? m3.shuffleUses : 0}
+        mode={screen === "game" ? m3.mode : "moves"}
+        timeLeftSec={screen === "game" ? m3.timeLeftSec : 0}
+        timeLimitSec={screen === "game" ? m3.timeLimitSec : 0}
+        activeGemCount={screen === "game" ? m3.activeGemCount : 0}
       />
 
       {endOpen && (
@@ -624,7 +740,7 @@ const MainGame = () => {
                 ? lang === "hu"
                   ? "Gratulálunk!"
                   : "Congratulations!"
-                : mode === "timed"
+                : m3.mode === "timed"
                   ? lang === "hu"
                     ? "Lejárt az idő!"
                     : "Time’s up!"
@@ -639,16 +755,13 @@ const MainGame = () => {
                   {"★".repeat(endStars)}
                   {"☆".repeat(3 - endStars)}
                 </div>
-
                 <div className="mt-2 text-sm text-white/80">
                   Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
                 </div>
               </>
             )}
 
-            <p className="text-white/70 mb-4">{lang === "hu" ? "Pontszám" : "Score"}:</p>
-
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center mt-4">
               <button
                 className="px-4 py-2 rounded-full bg-black/40 border border-red-900/40 br-win-modal"
                 onClick={() => {
@@ -664,27 +777,46 @@ const MainGame = () => {
               <button
                 className="px-4 py-2 rounded-full bg-red-900/60 hover:bg-red-800 br-win-modal"
                 onClick={() => {
+                  if (endActionLockRef.current) return;
+                  endActionLockRef.current = true;
+
                   playSound("click");
                   setEndOpen(false);
 
                   if (endWon) {
-                    const next = clampLevel(level + 1);
+                    const next = clampLevel(m3.level + 1);
                     setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
                     setCurrentLevel(next);
-                    startNewGame(next);
+
+                    reportedPassRef.current = 0;
+                    endShownForRef.current = "";
+
+                    lastStartedRef.current = 0;
+                    m3.startNewGame(next);
                     setScreen("game");
                   } else {
                     const L = typeof lives === "number" ? lives : 3;
                     if (L <= 0) {
                       setScreen("map");
+                      endActionLockRef.current = false;
                       return;
                     }
+
                     try {
-                      spendLife?.();
+                      spendLife();
                     } catch {}
-                    startNewGame(level);
+
+                    reportedPassRef.current = 0;
+                    endShownForRef.current = "";
+
+                    lastStartedRef.current = 0;
+                    m3.startNewGame(m3.level);
                     setScreen("game");
                   }
+
+                  window.setTimeout(() => {
+                    endActionLockRef.current = false;
+                  }, 350);
                 }}
                 type="button"
               >
@@ -701,20 +833,84 @@ const MainGame = () => {
           textLeft={story.left}
           textRight={story.right}
           onClose={() => setStoryOpen(false)}
-          showDragons={level >= 50}
+          showDragons={m3.level >= 50}
         />
       )}
 
-      {showWallet && !isTrial && <WalletModal onClose={() => setShowWallet(false)} />}
-      {showShop && !isTrial && <ShopModal onClose={() => setShowShop(false)} />}
+      {showWallet && <WalletModal onClose={() => setShowWallet(false)} />}
+      {showShop && <ShopModal onClose={() => setShowShop(false)} />}
+
+      {/* ✅ Shards modal */}
+      {showShards && (
+        <ShardsModal
+          onClose={() => setShowShards(false)}
+          foundLevels={shardsFoundLevels}
+        />
+      )}
     </div>
   );
 };
 
 export default function App() {
+  const { user, setUser } = useAuth() as any;
+  const [stage, setStage] = useState<"intro" | "welcome" | "login" | "register" | "game">("intro");
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("br_user");
+      localStorage.removeItem("br_auth_user");
+      localStorage.removeItem("br_token");
+    } catch {}
+
+    setUser(null);
+    setStage("login");
+  };
+
+  useEffect(() => {
+    const seenIntro = localStorage.getItem(LS_SEEN_INTRO) === "1";
+    const seenWelcome = localStorage.getItem(LS_SEEN_WELCOME) === "1";
+
+    if (!seenIntro) setStage("intro");
+    else if (!seenWelcome) setStage("welcome");
+    else if (user) setStage("game");
+    else setStage("login");
+  }, [user]);
+
   return (
     <GameProvider>
-      <MainGame />
+      {stage === "intro" && (
+        <IntroScreen
+          onContinue={() => {
+            localStorage.setItem(LS_SEEN_INTRO, "1");
+            setStage("welcome");
+          }}
+        />
+      )}
+
+      {stage === "welcome" && (
+        <WelcomeScreen
+          onContinue={() => {
+            localStorage.setItem(LS_SEEN_WELCOME, "1");
+            setStage("login");
+          }}
+        />
+      )}
+
+      {stage === "login" && (
+        <LoginPageComp
+          onGoRegister={() => setStage("register")}
+          onDone={() => setStage("game")}
+        />
+      )}
+
+      {stage === "register" && (
+        <RegisterPage
+          onBack={() => setStage("login")}
+          onDone={() => setStage("game")}
+        />
+      )}
+
+      {stage === "game" && <MainGame onLogout={handleLogout} />}
     </GameProvider>
   );
 }
