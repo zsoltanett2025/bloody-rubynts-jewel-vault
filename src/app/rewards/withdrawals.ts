@@ -1,8 +1,15 @@
 // src/app/rewards/withdrawals.ts
 import { addBr, getBrBalance } from "./brRewards";
+import emailjs from "@emailjs/browser";
 
 const LS_WITHDRAW_REQS = "br_withdraw_requests_v1";
 export const WITHDRAW_MIN_BR = 100;
+
+// ✅ EmailJS (auto notification)
+// IMPORTANT: these are PUBLIC identifiers (safe to ship in frontend)
+const EMAILJS_SERVICE_ID = "service_gzu0suh";
+const EMAILJS_TEMPLATE_ID = "template_at8xgoj";
+const EMAILJS_PUBLIC_KEY = "orMfLOSV2Vmcv9eED";
 
 export type WithdrawStatus = "pending" | "paid" | "cancelled";
 
@@ -42,6 +49,31 @@ function makeId(): string {
   const dd = String(d.getUTCDate()).padStart(2, "0");
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `WR-${y}${m}${dd}-${rand}`;
+}
+
+function sendWithdrawEmail(req: WithdrawRequest) {
+  // ✅ Never block gameplay / request creation if email fails
+  try {
+    void emailjs
+      .send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          user: req.userKey,
+          wallet: req.walletAddress,
+          amount: req.amount,
+          note: req.note || "",
+          request_id: req.id,
+          date: new Date(req.createdAt).toISOString(),
+        },
+        EMAILJS_PUBLIC_KEY
+      )
+      .catch(() => {
+        // silent fail (optional: console.log)
+      });
+  } catch {
+    // silent fail
+  }
 }
 
 export function listWithdrawRequests(): WithdrawRequest[] {
@@ -90,6 +122,9 @@ export function createWithdrawRequest(params: {
   const all = loadAll();
   all.push(req);
   saveAll(all);
+
+  // ✅ Auto email notification (EmailJS)
+  sendWithdrawEmail(req);
 
   return { ok: true, request: req };
 }
