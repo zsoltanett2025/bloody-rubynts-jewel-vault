@@ -42,7 +42,7 @@ const LS_SHARDS_FOUND = "br_shards_found_levels_v1";
 // 15 shard levels (full saga plan – ok even if TOTAL_LEVELS is smaller for now)
 const SHARD_LEVELS = [67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000];
 
-const TOTAL_LEVELS = 200;
+const TOTAL_LEVELS = 500;
 
 const MUSIC_MENU = assetUrl("assets/audio/music/music_menu.mp3");
 const MUSIC_BOSS_01 = assetUrl("assets/audio/music/music_boss_01.mp3");
@@ -53,7 +53,23 @@ const MUSIC_BOSS_05 = assetUrl("assets/audio/music/music_boss_05.mp3");
 const MUSIC_GAME_01 = assetUrl("assets/audio/music/music_game_01.mp3");
 const MUSIC_GAME_02 = assetUrl("assets/audio/music/music_game_02.mp3");
 const MUSIC_MENU_01 = assetUrl("assets/audio/music/music_menu_01.mp3");
-
+const MUSIC_BOSS_06 = assetUrl("assets/audio/music/music_boss_06.mp3");
+const MUSIC_BOSS_07 = assetUrl("assets/audio/music/music_boss_07.mp3");
+const MUSIC_BOSS_08 = assetUrl("assets/audio/music/music_boss_08.mp3");
+const MUSIC_BOSS_09 = assetUrl("assets/audio/music/music_boss_09.mp3");
+const MUSIC_BOSS_10 = assetUrl("assets/audio/music/music_boss_10.mp3");
+const MUSIC_BOSS_11 = assetUrl("assets/audio/music/music_boss_11.mp3");
+const MUSIC_BOSS_12 = assetUrl("assets/audio/music/music_boss_12.mp3");
+const MUSIC_BOSS_13 = assetUrl("assets/audio/music/music_boss_13.mp3");
+const MUSIC_BOSS_14 = assetUrl("assets/audio/music/music_boss_14.mp3");
+const MUSIC_BOSS_15 = assetUrl("assets/audio/music/music_boss_15.mp3");
+const MUSIC_BOSS_16 = assetUrl("assets/audio/music/music_boss_16.mp3");
+const MUSIC_BOSS_17 = assetUrl("assets/audio/music/music_boss_17.mp3");
+const MUSIC_BOSS_18 = assetUrl("assets/audio/music/music_boss_18.mp3");
+const MUSIC_BOSS_19 = assetUrl("assets/audio/music/music_boss_19.mp3");
+const MUSIC_BOSS_20 = assetUrl("assets/audio/music/music_boss_20.mp3");
+const MUSIC_BOSS_21 = assetUrl("assets/audio/music/music_boss_21.mp3");
+const MUSIC_BOSS_22 = assetUrl("assets/audio/music/music_boss_22.mp3");
 function clampLevel(n: number) {
   const v = Number(n);
   return Number.isFinite(v) && v > 0 ? v : 1;
@@ -310,6 +326,25 @@ const [showWallet, setShowWallet] = useState(false);
     if (lvl >= 141 && lvl <= 150) return MUSIC_GAME_02;
     if (lvl >= 151 && lvl <= 160) return MUSIC_MENU_01;
 
+    // 🔥 161–500
+
+if (lvl >= 161 && lvl <= 180) return MUSIC_BOSS_06;
+if (lvl >= 181 && lvl <= 200) return MUSIC_BOSS_07;
+if (lvl >= 201 && lvl <= 220) return MUSIC_BOSS_08;
+if (lvl >= 221 && lvl <= 240) return MUSIC_BOSS_09;
+if (lvl >= 241 && lvl <= 260) return MUSIC_BOSS_10;
+if (lvl >= 261 && lvl <= 280) return MUSIC_BOSS_11;
+if (lvl >= 281 && lvl <= 300) return MUSIC_BOSS_12;
+if (lvl >= 301 && lvl <= 320) return MUSIC_BOSS_13;
+if (lvl >= 321 && lvl <= 340) return MUSIC_BOSS_14;
+if (lvl >= 341 && lvl <= 360) return MUSIC_BOSS_15;
+if (lvl >= 361 && lvl <= 380) return MUSIC_BOSS_16;
+if (lvl >= 381 && lvl <= 400) return MUSIC_BOSS_17;
+if (lvl >= 401 && lvl <= 420) return MUSIC_BOSS_18;
+if (lvl >= 421 && lvl <= 440) return MUSIC_BOSS_19;
+if (lvl >= 441 && lvl <= 460) return MUSIC_BOSS_20;
+if (lvl >= 461 && lvl <= 480) return MUSIC_BOSS_21;
+if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     return null;
   }
 

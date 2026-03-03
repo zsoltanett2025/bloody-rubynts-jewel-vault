@@ -22,23 +22,22 @@ function buildNodes(count: number): Node[] {
 }
 
 export function LevelMap(props: {
-  totalLevels: number;
+  totalLevels: number; // ✅ ennyi pálya van jelenleg "készen" a buildben (pl. 200)
   currentLevel: number;
-  unlockedLevel: number;
+  unlockedLevel: number; // ✅ eddig jutott a játékos
   onSelectLevel: (lvl: number) => void;
 }) {
   const { totalLevels, currentLevel, unlockedLevel, onSelectLevel } = props;
 
+  // ✅ mindig 1000 pályát mutatunk a mapon (vizuális “roadmap”)
+  const MAX_VISIBLE_LEVELS = 1000;
+
   const backgrounds = GAME_ASSETS.mapBackgrounds;
-  const bgIndex =
-    Math.floor((currentLevel - 1) / 20) % backgrounds.length;
+  const bgIndex = Math.floor((currentLevel - 1) / 20) % backgrounds.length;
 
   const knightImg = GAME_ASSETS.map.knight;
 
-  const nodes = React.useMemo(
-    () => buildNodes(totalLevels),
-    [totalLevels]
-  );
+  const nodes = React.useMemo(() => buildNodes(MAX_VISIBLE_LEVELS), []);
 
   const minY = Math.min(...nodes.map((n) => n.y));
   const maxY = Math.max(...nodes.map((n) => n.y));
@@ -61,48 +60,42 @@ export function LevelMap(props: {
     if (!node) return;
 
     const targetY = node.y + translateY;
-
-    // ✅ stabilabb scroll számítás
     const top = Math.max(0, targetY - el.clientHeight * 0.55);
 
     el.scrollTo({ top, behavior: "smooth" });
   }, [currentLevel, nodes, translateY]);
 
-  const [, setFoundShards] =
-    React.useState<Record<number, boolean>>(() =>
-      loadFoundShards()
-    );
+  const [, setFoundShards] = React.useState<Record<number, boolean>>(() =>
+    loadFoundShards()
+  );
 
   React.useEffect(() => {
-    const id = window.setInterval(
-      () => setFoundShards(loadFoundShards()),
-      600
-    );
+    const id = window.setInterval(() => setFoundShards(loadFoundShards()), 600);
     return () => window.clearInterval(id);
   }, []);
 
-  const currentNode = nodes.find(
-    (n) => n.level === currentLevel
-  );
+  const currentNode = nodes.find((n) => n.level === currentLevel);
+
+  // ✅ “Coming soon” csak azokra, amik még NINCSENEK kész pályaként a buildben
+  const onComingSoonClick = React.useCallback(() => {
+    alert("Coming soon");
+  }, []);
 
   return (
     <div
       ref={scrollRef}
       className="w-full h-[100svh] overflow-y-auto relative scroll-pt-20"
       style={{
-       backgroundImage: `
+        backgroundImage: `
          linear-gradient(180deg, rgba(0,0,0,0.40), rgba(0,0,0,0.72)),
          radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.20), transparent 60%),
          url('${backgrounds[bgIndex]}')
      `,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        // ✅ Mobil fix
         backgroundAttachment: isMobile ? "scroll" : "fixed",
       }}
     >
-      
-
       <div className="w-full">
         <svg
           width="100%"
@@ -122,15 +115,14 @@ export function LevelMap(props: {
             )}
 
             {nodes.map((n) => {
-              const locked = n.level > unlockedLevel;
+              // ✅ 2 külön logika:
+              const isComingSoon = n.level > totalLevels; // nincs kész tartalom (201+ ha totalLevels=200)
+              const isProgressLocked = !isComingSoon && n.level > unlockedLevel; // még nem oldotta fel, de létező pálya
               const isCurrent = n.level === currentLevel;
               const isDone = n.level < currentLevel;
 
               return (
-                <g
-                  key={n.level}
-                  transform={`translate(${n.x} ${n.y})`}
-                >
+                <g key={n.level} transform={`translate(${n.x} ${n.y})`}>
                   {isCurrent && (
                     <circle r={34} fill="rgba(220,38,38,0.22)">
                       <animate
@@ -148,21 +140,22 @@ export function LevelMap(props: {
                     </circle>
                   )}
 
-                  <foreignObject
-                    x={-30}
-                    y={-30}
-                    width={60}
-                    height={60}
-                  >
+                  <foreignObject x={-30} y={-30} width={60} height={60}>
                     <button
-                      disabled={locked}
-                      onClick={() =>
-                        !locked && onSelectLevel(n.level)
-                      }
+                      // ✅ progress locked: tényleg disabled (ne zavarjon)
+                      // ✅ coming soon: kattintható, csak üzenetet ad
+                      disabled={isProgressLocked}
+                      onClick={() => {
+                        if (isComingSoon) return onComingSoonClick();
+                        if (isProgressLocked) return;
+                        onSelectLevel(n.level);
+                      }}
                       className={[
                         "w-[60px] h-[60px] rounded-full flex items-center justify-center",
                         "border shadow-lg",
-                        locked
+                        isComingSoon
+                          ? "bg-white/5 border-white/10 text-white/30"
+                          : isProgressLocked
                           ? "bg-white/5 border-white/10 text-white/30"
                           : isCurrent
                           ? "bg-red-600/85 border-red-200/40 text-white"
@@ -170,14 +163,33 @@ export function LevelMap(props: {
                           ? "bg-white/10 border-white/20 text-white/85"
                           : "bg-white/10 border-white/20 text-white/80 hover:bg-white/15",
                       ].join(" ")}
+                      title={
+                        isComingSoon
+                          ? "Coming soon"
+                          : isProgressLocked
+                          ? "Locked"
+                          : `Level ${n.level}`
+                      }
                     >
-                      <span className="font-bold">
-                        {n.level}
-                      </span>
+                      <span className="font-bold">{n.level}</span>
                     </button>
                   </foreignObject>
 
-                  {isDone && (
+                  {/* ✅ Coming soon felirat CSAK a nem-kész (201+) pályákra */}
+                  {isComingSoon && (
+                    <text
+                      x={0}
+                      y={44}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="rgba(255,255,255,0.38)"
+                    >
+                      🔒 Coming soon
+                    </text>
+                  )}
+
+                  {/* ✅ A sima progress lockra nem írunk “coming soon”-t */}
+                  {isDone && !isComingSoon && (
                     <text
                       x={0}
                       y={44}
