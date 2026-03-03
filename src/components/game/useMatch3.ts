@@ -787,17 +787,17 @@ export const useMatch3 = (active: boolean = true) => {
         setTimeLimitSec(0);
         setTimeLeftSec(0);
 
-        if (lvl <= 120) {
-          if (lvl <= 10) nextMoves = 14;
-          else if (lvl <= 30) nextMoves = 16;
-          else if (lvl <= 60) nextMoves = 18;
-          else if (lvl <= 90) nextMoves = 20;
-          else nextMoves = 22;
-        } else {
-          const base = 30 - Math.floor((cfg.gemCount - 5) * 1.2);
-          const rnd = Math.floor(Math.random() * 3) - 1;
-          nextMoves = clamp(base + rnd, 16, 30);
-        }
+       if (lvl <= 120) {
+         if (lvl <= 10) nextMoves = 14;
+         else if (lvl <= 30) nextMoves = 16;
+         else if (lvl <= 50) nextMoves = 25;   // <-- ez a lényeg: 31–50
+         else if (lvl <= 90) nextMoves = 28;   // <-- 51–90
+         else nextMoves = 25;                  // <-- 91–120 (maradhat 25)
+       } else {
+         const base = 30 - Math.floor((cfg.gemCount - 5) * 1.2);
+         const rnd = Math.floor(Math.random() * 3) - 1;
+         nextMoves = clamp(base + rnd, 16, 30);
+    }
       }
 
       setMovesSynced(nextMoves);
