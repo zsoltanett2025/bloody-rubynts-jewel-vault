@@ -42,7 +42,7 @@ const LS_SHARDS_FOUND = "br_shards_found_levels_v1";
 // 15 shard levels (full saga plan – ok even if TOTAL_LEVELS is smaller for now)
 const SHARD_LEVELS = [67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000];
 
-const TOTAL_LEVELS = 500;
+const TOTAL_LEVELS = 200;
 
 const MUSIC_MENU = assetUrl("assets/audio/music/music_menu.mp3");
 const MUSIC_BOSS_01 = assetUrl("assets/audio/music/music_boss_01.mp3");
