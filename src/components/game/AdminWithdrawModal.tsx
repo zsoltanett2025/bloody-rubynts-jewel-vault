@@ -401,7 +401,7 @@ export function AdminWithdrawModal({ onClose }: { onClose: () => void }) {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const ok = cancelWithdrawRequest(r.id, true);
+                                  const ok = cancelWithdrawRequest(r.id, "true");
                                   if (ok) {
                                     setInfo("Cancelled + refunded.");
                                     window.setTimeout(() => setInfo(null), 1200);

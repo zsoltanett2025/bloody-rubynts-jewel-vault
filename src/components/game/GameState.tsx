@@ -123,22 +123,8 @@ function hasInfiniteLifeActive(): boolean {
   return getInfiniteLifeUntil() > Date.now();
 }
 
-const LS_DAILY_LAST_PREFIX = "br_daily_last_claim_v2:";
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-function todayKeyLocal(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-function hasClaimedDaily(userKey: string): boolean {
-  try {
-    const last = localStorage.getItem(`${LS_DAILY_LAST_PREFIX}${userKey || "guest"}`);
-    return last === todayKeyLocal();
-  } catch {
-    return false;
-  }
-}
+
+
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const maxLives = 3;

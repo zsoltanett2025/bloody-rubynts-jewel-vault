@@ -172,15 +172,7 @@ function formatDurationShort(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function isDevToolsAllowed(): boolean {
-  try {
-    if (import.meta.env.DEV) return true;
-    const keys = ["admin", "br_admin", "bradmin_1", "br_admin_1", "bradmin"];
-    return keys.some((k) => localStorage.getItem(k) === "1");
-  } catch {
-    return Boolean(import.meta.env.DEV);
-  }
-}
+
 
 function getObjectiveIcon(rules: LevelRules): string {
   if (rules.challenge?.type === "lava") {
