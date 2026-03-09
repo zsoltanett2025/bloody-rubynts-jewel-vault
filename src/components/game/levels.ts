@@ -86,9 +86,14 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
   const wave = (level - 1) % 10;
   const block = Math.floor((level - 1) / 20);
 
-  const baseMoves = clamp(14 + block, 14, 20);
-  const waveDelta = wave <= 2 ? +2 : wave <= 6 ? 0 : wave <= 8 ? -2 : -3;
-  const moves = clamp(baseMoves + waveDelta, 12, 20);
+  const baseMoves = clamp(17 + block, 17, 23);
+  const waveDelta = wave <= 2 ? +2 : wave <= 6 ? 0 : wave <= 8 ? -1 : -2;
+
+  // kis segítség a korai-mid pályákhoz, főleg 15–30 között
+  const bonusMoves = level >= 15 && level <= 30 ? 4 : 0;
+
+  const rawMoves = baseMoves + waveDelta;
+  const moves = clamp(rawMoves + bonusMoves, 16, 27);
 
   if (level === 10) {
     return {
@@ -101,7 +106,7 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
 
   if (level % 10 === 0) {
     return {
-      moves: clamp(baseMoves - 1, 12, 20),
+      moves: clamp(baseMoves - 1 + bonusMoves, 16, 27),
       goal: { type: "chest", count: 1 },
       rewards: { chest: true },
       challenge: { type: "none" },
@@ -111,7 +116,7 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
   const allowClear = level >= 15;
   if (wave === 9 && allowClear) {
     return {
-      moves: clamp(baseMoves - 3, 12, 18),
+      moves: clamp(baseMoves - 3 + bonusMoves, 16, 27),
       goal: {
         type: "clear",
         gem: clearGemByLevel(level),
@@ -123,7 +128,7 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
 
   return {
     moves,
-    goal: { type: "score", target: scoreTarget(level, moves) },
+    goal: { type: "score", target: scoreTarget(level, rawMoves) },
     challenge: { type: "none" },
   };
 }
@@ -132,12 +137,12 @@ function midGame(level: number): Omit<LevelRules, "level"> {
   const stage = Math.floor((level - 121) / 20);
   const wave = (level - 1) % 10;
 
-  const movesBase = clamp(18 - stage, 14, 18);
-  const moves = clamp(movesBase + (wave <= 2 ? +1 : wave >= 7 ? -2 : 0), 12, 18);
+  const movesBase = clamp(18 - stage, 16, 23);
+  const moves = clamp(movesBase + (wave <= 2 ? +1 : wave >= 7 ? -2 : 0), 16, 23);
 
   if (level % 10 === 0) {
     return {
-      moves: clamp(moves - 1, 12, 18),
+      moves: clamp(moves - 1, 16, 23),
       goal: { type: "chest", count: 1 },
       rewards: { chest: true },
       challenge: { type: "none" },
