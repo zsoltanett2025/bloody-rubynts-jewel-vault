@@ -22,14 +22,13 @@ function buildNodes(count: number): Node[] {
 }
 
 export function LevelMap(props: {
-  totalLevels: number; // ✅ ennyi pálya van jelenleg "készen" a buildben (pl. 200)
+  totalLevels: number;
   currentLevel: number;
-  unlockedLevel: number; // ✅ eddig jutott a játékos
+  unlockedLevel: number;
   onSelectLevel: (lvl: number) => void;
 }) {
   const { totalLevels, currentLevel, unlockedLevel, onSelectLevel } = props;
 
-  // ✅ mindig 1000 pályát mutatunk a mapon (vizuális “roadmap”)
   const MAX_VISIBLE_LEVELS = 1000;
 
   const backgrounds = GAME_ASSETS.mapBackgrounds;
@@ -46,7 +45,6 @@ export function LevelMap(props: {
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
 
-  // ✅ Mobil detektálás
   const isMobile = React.useMemo(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 1024px)").matches;
@@ -75,11 +73,6 @@ export function LevelMap(props: {
   }, []);
 
   const currentNode = nodes.find((n) => n.level === currentLevel);
-
-  // ✅ “Coming soon” csak azokra, amik még NINCSENEK kész pályaként a buildben
-  const onComingSoonClick = React.useCallback(() => {
-    alert("Coming soon");
-  }, []);
 
   return (
     <div
@@ -115,11 +108,15 @@ export function LevelMap(props: {
             )}
 
             {nodes.map((n) => {
-              // ✅ 2 külön logika:
-              const isComingSoon = n.level > totalLevels; // nincs kész tartalom (201+ ha totalLevels=200)
-              const isProgressLocked = !isComingSoon && n.level > unlockedLevel; // még nem oldotta fel, de létező pálya
               const isCurrent = n.level === currentLevel;
               const isDone = n.level < currentLevel;
+              const isBuilt = n.level <= totalLevels;
+
+              // ✅ nincs több "coming soon"
+              const isComingSoon = false;
+
+              // ✅ csak az eddig feloldott pályákra lehet lépni
+              const isProgressLocked = n.level > unlockedLevel;
 
               return (
                 <g key={n.level} transform={`translate(${n.x} ${n.y})`}>
@@ -142,54 +139,32 @@ export function LevelMap(props: {
 
                   <foreignObject x={-30} y={-30} width={60} height={60}>
                     <button
-                      // ✅ progress locked: tényleg disabled (ne zavarjon)
-                      // ✅ coming soon: kattintható, csak üzenetet ad
                       disabled={isProgressLocked}
                       onClick={() => {
-                        if (isComingSoon) return onComingSoonClick();
+                        if (isComingSoon) return;
                         if (isProgressLocked) return;
                         onSelectLevel(n.level);
                       }}
                       className={[
                         "w-[60px] h-[60px] rounded-full flex items-center justify-center",
                         "border shadow-lg",
-                        isComingSoon
-                          ? "bg-white/5 border-white/10 text-white/30"
-                          : isProgressLocked
+                        isProgressLocked
                           ? "bg-white/5 border-white/10 text-white/30"
                           : isCurrent
-                          ? "bg-red-600/85 border-red-200/40 text-white"
-                          : isDone
-                          ? "bg-white/10 border-white/20 text-white/85"
-                          : "bg-white/10 border-white/20 text-white/80 hover:bg-white/15",
+                            ? "bg-red-600/85 border-red-200/40 text-white"
+                            : isDone
+                              ? "bg-white/10 border-white/20 text-white/85"
+                              : isBuilt
+                                ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/15"
+                                : "bg-white/5 border-white/10 text-white/55",
                       ].join(" ")}
-                      title={
-                        isComingSoon
-                          ? "Coming soon"
-                          : isProgressLocked
-                          ? "Locked"
-                          : `Level ${n.level}`
-                      }
+                      title={isProgressLocked ? "Locked" : `Level ${n.level}`}
                     >
                       <span className="font-bold">{n.level}</span>
                     </button>
                   </foreignObject>
 
-                  {/* ✅ Coming soon felirat CSAK a nem-kész (201+) pályákra */}
-                  {isComingSoon && (
-                    <text
-                      x={0}
-                      y={44}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fill="rgba(255,255,255,0.38)"
-                    >
-                      🔒 Coming soon
-                    </text>
-                  )}
-
-                  {/* ✅ A sima progress lockra nem írunk “coming soon”-t */}
-                  {isDone && !isComingSoon && (
+                  {isDone && (
                     <text
                       x={0}
                       y={44}

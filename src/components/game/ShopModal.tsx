@@ -11,12 +11,38 @@ type Item = {
   onBuy: () => void;
 };
 
+const LS_INF_LIFE_UNTIL = "br_infinite_life_until_v1";
+
 export function ShopModal({ onClose }: { onClose: () => void }) {
   const { progress, addLives, setLivesToMax, addInventoryItem, refreshRubyntBalance } = useGame();
   const br = progress?.rubyntBalance ?? 0;
 
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  const addItemSafe = (key: string, amount: number) => {
+    try {
+      (addInventoryItem as any)?.(key, amount);
+    } catch {
+      // későbbi GameState bővítésig ne törjön el a shop
+    }
+  };
+
+  const grantInfiniteLife = (minutes: number) => {
+    try {
+      const now = Date.now();
+      const currentUntil = Number(localStorage.getItem(LS_INF_LIFE_UNTIL) || 0);
+      const base = currentUntil > now ? currentUntil : now;
+      const nextUntil = base + minutes * 60 * 1000;
+      localStorage.setItem(LS_INF_LIFE_UNTIL, String(nextUntil));
+    } catch {
+      // ne törjön el a vásárlás, ha a localStorage épp hibázik
+    }
+
+    try {
+      setLivesToMax();
+    } catch {}
+  };
 
   const buy = (price: number, apply: () => void, successText: string) => {
     setErr(null);
@@ -34,7 +60,11 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    apply();
+    try {
+      apply();
+    } catch {
+      // ha valami mégis hibázik, ne égjen el a UI
+    }
 
     try {
       refreshRubyntBalance();
@@ -63,22 +93,67 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
       title: "+1 Bomb",
       desc: "Adds one bomb to your inventory.",
       price: 20,
-      onBuy: () => buy(20, () => addInventoryItem("bombs", 1), "Purchased: +1 Bomb"),
+      onBuy: () => buy(20, () => addItemSafe("bombs", 1), "Purchased: +1 Bomb"),
+    },
+    {
+      id: "striped_1",
+      title: "+1 Striped Bomb",
+      desc: "Adds one striped bomb to your inventory.",
+      price: 25,
+      onBuy: () =>
+        buy(25, () => addItemSafe("stripedBombs", 1), "Purchased: +1 Striped Bomb"),
+    },
+    {
+      id: "rainbow_1",
+      title: "+1 Rainbow Bomb",
+      desc: "Adds one rainbow bomb to your inventory.",
+      price: 40,
+      onBuy: () =>
+        buy(40, () => addItemSafe("rainbowBombs", 1), "Purchased: +1 Rainbow Bomb"),
+    },
+    {
+      id: "moves_5",
+      title: "+5 Moves",
+      desc: "Adds one +5 moves booster to your inventory.",
+      price: 30,
+      onBuy: () => buy(30, () => addItemSafe("extraMoves", 1), "Purchased: +5 Moves"),
+    },
+    {
+      id: "inf_life_30",
+      title: "Infinite Life (30 min)",
+      desc: "Gives unlimited lives for 30 minutes.",
+      price: 100,
+      onBuy: () =>
+        buy(100, () => grantInfiniteLife(30), "Purchased: Infinite Life for 30 minutes"),
+    },
+    {
+      id: "inf_life_60",
+      title: "Infinite Life (1 hour)",
+      desc: "Gives unlimited lives for 60 minutes.",
+      price: 120,
+      onBuy: () =>
+        buy(120, () => grantInfiniteLife(60), "Purchased: Infinite Life for 1 hour"),
     },
   ];
 
   return (
-    <div className="fixed inset-0 z-[20000] bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[20000] bg-black/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-sm bg-[#120404] border border-red-900/40 rounded-2xl p-4 text-white"
+        className="w-full max-w-sm bg-[#120404] border border-red-900/40 rounded-2xl p-4 text-white max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-3">
           <div>
             <h3 className="font-bold">Shop</h3>
-            <div className="text-[11px] text-white/50">Spend BR on boosts (trial economy)</div>
+            <div className="text-[11px] text-white/50">Spend BR on boosts and timed bonuses</div>
           </div>
-          <button onClick={onClose} className="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/15 transition">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/15 transition"
+          >
             Close
           </button>
         </div>
@@ -110,7 +185,7 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
                   <div className="text-xs text-white/60 mt-1">{it.desc}</div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <div className="text-xs text-white/50">Price</div>
                   <div className="text-sm font-semibold tabular-nums">{it.price} BR</div>
                 </div>
@@ -128,7 +203,8 @@ export function ShopModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-3 text-[11px] text-white/45">
-          Tip: This is a manual economy for testing. Later we can add boosters, chests, and special offers.
+          Tip: Bought boosters are stored for later use. Infinite life is saved as a timed bonus for
+          future integration into the main HUD and game screen.
         </div>
       </div>
     </div>

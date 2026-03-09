@@ -2,12 +2,13 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { playSound, type SfxName } from "../../utils/audioManager";
 import { getShardConfig } from "../../utils/shards";
 import { getLevelConfig } from "./levelConfig";
-import { getLevelRules } from "./levels";
+import { getLevelRules, isGoalMet } from "./levels";
 
-console.log("useMatch3 loaded v-STABLE-NO-RUNTIME");
+console.log("useMatch3 loaded v-STABLE-RESET-DRAGON");
 
 export type GemType = "chest" | (string & {});
 export type PowerType = "stripe_h" | "stripe_v" | "bomb" | "rainbow";
+export type BoosterType = "bomb" | "striped" | "rainbow";
 
 export interface Gem {
   id: string;
@@ -25,10 +26,17 @@ const GRAVITY_MS = 420;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type ChallengeProgress = {
+  bombsUsed: number;
+  rainbowsUsed: number;
+  rainbowsCreated: number;
+};
+
 type GoalProgress = {
   score: number;
   chests: number;
   cleared: Record<string, number>;
+  challenge: ChallengeProgress;
 };
 
 export type ScorePop = {
@@ -49,7 +57,6 @@ function newId() {
   return `id_${Date.now()}_${__gid}_${Math.random().toString(16).slice(2)}`;
 }
 
-// ---------- seeded rng ----------
 function mulberry32(seed: number) {
   let t = seed >>> 0;
   return function () {
@@ -79,7 +86,12 @@ function getActiveGemTypesForLevel(level: number, count: number): GemType[] {
   return shuffled.slice(0, clamp(count, 1, shuffled.length));
 }
 
-const generateRandomGem = (x: number, y: number, activeTypes: GemType[], chanceForChest = 0): Gem => {
+const generateRandomGem = (
+  x: number,
+  y: number,
+  activeTypes: GemType[],
+  chanceForChest = 0
+): Gem => {
   const isChest = Math.random() < chanceForChest;
   const pool = activeTypes.length > 0 ? activeTypes : GEM_TYPES_ALL;
 
@@ -92,7 +104,9 @@ const generateRandomGem = (x: number, y: number, activeTypes: GemType[], chanceF
 };
 
 const buildGrid = (size: number, mask: boolean[][], gems: Gem[]) => {
-  const grid: (Gem | null)[][] = Array.from({ length: size }, () => Array.from({ length: size }, () => null));
+  const grid: (Gem | null)[][] = Array.from({ length: size }, () =>
+    Array.from({ length: size }, () => null)
+  );
   for (const g of gems) {
     if (g.x >= 0 && g.x < size && g.y >= 0 && g.y < size) {
       if (mask[g.y]?.[g.x]) grid[g.y][g.x] = g;
@@ -144,7 +158,6 @@ const findMatches = (gems: Gem[], size: number, mask: boolean[][]): Gem[] => {
   const grid = buildGrid(size, mask, gems);
   const matches = new Set<Gem>();
 
-  // Horizontal
   for (let y = 0; y < size; y++) {
     let run: Gem[] = [];
     for (let x = 0; x < size; x++) {
@@ -165,7 +178,6 @@ const findMatches = (gems: Gem[], size: number, mask: boolean[][]): Gem[] => {
     if (run.length >= 3) run.forEach((g) => matches.add(g));
   }
 
-  // Vertical
   for (let x = 0; x < size; x++) {
     let run: Gem[] = [];
     for (let y = 0; y < size; y++) {
@@ -189,9 +201,10 @@ const findMatches = (gems: Gem[], size: number, mask: boolean[][]): Gem[] => {
   return Array.from(matches);
 };
 
-// --- Dead-board helpers ---
 function normalizeGemsToMask(gems: Gem[], size: number, mask: boolean[][]) {
-  return gems.filter((g) => g.x >= 0 && g.x < size && g.y >= 0 && g.y < size && !!mask[g.y]?.[g.x]);
+  return gems.filter(
+    (g) => g.x >= 0 && g.x < size && g.y >= 0 && g.y < size && !!mask[g.y]?.[g.x]
+  );
 }
 
 function countPossibleMoves(gems: Gem[], size: number, mask: boolean[][]) {
@@ -221,7 +234,6 @@ function countPossibleMoves(gems: Gem[], size: number, mask: boolean[][]) {
         const other = grid[ny][nx];
         if (!other || other.type === "chest") continue;
 
-        // swap
         grid[y][x] = other;
         grid[ny][nx] = current;
 
@@ -236,7 +248,6 @@ function countPossibleMoves(gems: Gem[], size: number, mask: boolean[][]) {
 
         if (findMatches(swapped, size, mask).length > 0) count++;
 
-        // revert
         grid[y][x] = current;
         grid[ny][nx] = other;
       }
@@ -250,11 +261,19 @@ function hasAnyMove(gems: Gem[], size: number, mask: boolean[][]) {
   return countPossibleMoves(gems, size, mask) > 0;
 }
 
-function rerollPlayable(size: number, mask: boolean[][], pool: GemType[], minMoves: number, maxTries = 420): Gem[] {
+function rerollPlayable(
+  size: number,
+  mask: boolean[][],
+  pool: GemType[],
+  minMoves: number,
+  maxTries = 420
+): Gem[] {
   const activePositions: Array<{ x: number; y: number }> = [];
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
       if (mask[y]?.[x]) activePositions.push({ x, y });
+    }
+  }
 
   let last: Gem[] = [];
 
@@ -285,9 +304,11 @@ function shuffleToPlayable(
   maxTries = 180
 ): Gem[] {
   const activePositions: Array<{ x: number; y: number }> = [];
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
       if (mask[y]?.[x]) activePositions.push({ x, y });
+    }
+  }
 
   if (activePositions.length <= 1) return gems;
 
@@ -320,9 +341,33 @@ function getGemCountForLevel(level: number) {
   return clamp(want, 5, Math.min(12, GEM_TYPES_ALL.length));
 }
 
-/* ===========================
-   ✅ POWERUP HELPERS
-   =========================== */
+function isChallengeMet(
+  challenge:
+    | { type: "none" }
+    | { type: "lava"; intensity: 1 | 2 | 3 }
+    | { type: "bomb_collect"; count: number }
+    | { type: "rainbow_focus"; count: number }
+    | { type: "dragon"; hp: number },
+  progress: GoalProgress,
+  dragonHp: number
+) {
+  switch (challenge.type) {
+    case "none":
+      return true;
+    case "lava":
+      return true;
+    case "bomb_collect":
+      return (progress.challenge?.bombsUsed ?? 0) >= challenge.count;
+    case "rainbow_focus":
+      return (
+        (progress.challenge?.rainbowsUsed ?? 0) +
+          (progress.challenge?.rainbowsCreated ?? 0) >=
+        challenge.count
+      );
+    case "dragon":
+      return dragonHp <= 0;
+  }
+}
 
 type CellKey = string;
 const keyOf = (x: number, y: number) => `${x},${y}`;
@@ -391,6 +436,75 @@ function analyzeMatchesAndPower(
 
   if (matches.length === 0) return { matches };
 
+  const keyToType = new Map<CellKey, GemType>();
+  for (const k of matchKeys) keyToType.set(k, byKey[k]?.type);
+
+  const visited = new Set<CellKey>();
+  let bestGroup: CellKey[] = [];
+
+  const neigh = (k: CellKey) => {
+    const [xs, ys] = k.split(",");
+    const x = Number(xs);
+    const y = Number(ys);
+    const out: CellKey[] = [];
+    const cand: Array<[number, number]> = [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1],
+    ];
+    for (const [nx, ny] of cand) {
+      const kk = keyOf(nx, ny);
+      if (matchKeys.has(kk)) out.push(kk);
+    }
+    return out;
+  };
+
+  for (const k of matchKeys) {
+    if (visited.has(k)) continue;
+    const t = keyToType.get(k);
+    if (!t || t === "chest") {
+      visited.add(k);
+      continue;
+    }
+
+    const stack = [k];
+    const group: CellKey[] = [];
+    visited.add(k);
+
+    while (stack.length) {
+      const cur = stack.pop()!;
+      group.push(cur);
+      for (const nb of neigh(cur)) {
+        if (visited.has(nb)) continue;
+        if (keyToType.get(nb) !== t) continue;
+        visited.add(nb);
+        stack.push(nb);
+      }
+    }
+
+    if (group.length >= 6 && group.length > bestGroup.length) bestGroup = group;
+  }
+
+  if (bestGroup.length >= 6) {
+    const coords = bestGroup.map((k) => {
+      const [xs, ys] = k.split(",");
+      return { k, x: Number(xs), y: Number(ys) };
+    });
+    const ax = coords.reduce((s, c) => s + c.x, 0) / coords.length;
+    const ay = coords.reduce((s, c) => s + c.y, 0) / coords.length;
+    coords.sort(
+      (a, b) =>
+        Math.abs(a.x - ax) +
+        Math.abs(a.y - ay) -
+        (Math.abs(b.x - ax) + Math.abs(b.y - ay))
+    );
+    const g = byKey[coords[0].k];
+    if (g && g.type !== "chest") {
+      return { matches, createPower: { keepId: g.id, power: "rainbow" } };
+    }
+  }
+
   let bestBomb: { k: CellKey; score: number } | null = null;
   for (const k of matchKeys) {
     const hl = hLen[k] ?? 0;
@@ -402,7 +516,9 @@ function analyzeMatchesAndPower(
   }
   if (bestBomb) {
     const g = byKey[bestBomb.k];
-    if (g && g.type !== "chest") return { matches, createPower: { keepId: g.id, power: "bomb" } };
+    if (g && g.type !== "chest") {
+      return { matches, createPower: { keepId: g.id, power: "bomb" } };
+    }
   }
 
   let bestStripe: { k: CellKey; len: number; orient: "h" | "v" } | null = null;
@@ -410,15 +526,22 @@ function analyzeMatchesAndPower(
     const hl = hLen[k] ?? 0;
     const vl = vLen[k] ?? 0;
 
-    if (hl >= 4) if (!bestStripe || hl > bestStripe.len) bestStripe = { k, len: hl, orient: "h" };
-    if (vl >= 4) if (!bestStripe || vl > bestStripe.len) bestStripe = { k, len: vl, orient: "v" };
+    if (hl >= 4) {
+      if (!bestStripe || hl > bestStripe.len) bestStripe = { k, len: hl, orient: "h" };
+    }
+    if (vl >= 4) {
+      if (!bestStripe || vl > bestStripe.len) bestStripe = { k, len: vl, orient: "v" };
+    }
   }
   if (bestStripe) {
     const g = byKey[bestStripe.k];
     if (g && g.type !== "chest") {
       return {
         matches,
-        createPower: { keepId: g.id, power: bestStripe.orient === "h" ? "stripe_h" : "stripe_v" },
+        createPower: {
+          keepId: g.id,
+          power: bestStripe.orient === "h" ? "stripe_h" : "stripe_v",
+        },
       };
     }
   }
@@ -426,7 +549,12 @@ function analyzeMatchesAndPower(
   return { matches };
 }
 
-function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][], clearIds: Set<string>) {
+function expandClearIdsByPowers(
+  allGems: Gem[],
+  size: number,
+  mask: boolean[][],
+  clearIds: Set<string>
+) {
   const grid = buildGrid(size, mask, allGems);
 
   const gemById = new Map<string, Gem>();
@@ -455,7 +583,9 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
     } else if (g.power === "stripe_v") {
       for (let y = 0; y < size; y++) addByCell(g.x, y);
     } else if (g.power === "bomb") {
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) addByCell(g.x + dx, g.y + dy);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) addByCell(g.x + dx, g.y + dy);
+      }
     }
 
     for (const nid of clearIds) {
@@ -464,14 +594,11 @@ function expandClearIdsByPowers(allGems: Gem[], size: number, mask: boolean[][],
   }
 }
 
-/* ===========================
-   ✅ HOOK
-   =========================== */
-
 export const useMatch3 = (active: boolean = true) => {
   const [gameOver, setGameOver] = useState(false);
   const [stars, setStars] = useState(0);
   const [isShuffling, setIsShuffling] = useState(false);
+  const [armedBooster, setArmedBooster] = useState<BoosterType | null>(null);
 
   const starsRef = useRef(0);
   useEffect(() => {
@@ -483,6 +610,7 @@ export const useMatch3 = (active: boolean = true) => {
     Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true))
   );
 
+  
   const boardSizeRef = useRef(boardSize);
   const maskRef = useRef(mask);
   useEffect(() => {
@@ -521,7 +649,9 @@ export const useMatch3 = (active: boolean = true) => {
   const [timeLimitSec, setTimeLimitSec] = useState<number>(0);
   const [timeLeftSec, setTimeLeftSec] = useState<number>(0);
 
-  const [activeTypes, setActiveTypes] = useState<GemType[]>(() => getActiveGemTypesForLevel(1, 5));
+  const [activeTypes, setActiveTypes] = useState<GemType[]>(() =>
+    getActiveGemTypesForLevel(1, 5)
+  );
   const activeTypesRef = useRef<GemType[]>(activeTypes);
   useEffect(() => {
     activeTypesRef.current = activeTypes;
@@ -537,8 +667,37 @@ export const useMatch3 = (active: boolean = true) => {
     shuffleUsesRef.current = shuffleUses;
   }, [shuffleUses]);
 
-  const [progress, setProgress] = useState<GoalProgress>({ score: 0, chests: 0, cleared: {} });
-  const progressRef = useRef<GoalProgress>({ score: 0, chests: 0, cleared: {} });
+    const [dragonHp, setDragonHp] = useState(0);
+  const dragonHpRef = useRef(0);
+  const [dragonJustHit, setDragonJustHit] = useState(false);
+
+  useEffect(() => {
+    dragonHpRef.current = dragonHp;
+    setDragonJustHit(dragonHp < dragonHpRef.current);
+  }, [dragonHp]);
+
+  const [progress, setProgress] = useState<GoalProgress>({
+    score: 0,
+    chests: 0,
+    cleared: {},
+    challenge: {
+      bombsUsed: 0,
+      rainbowsUsed: 0,
+      rainbowsCreated: 0,
+    },
+  });
+
+  const progressRef = useRef<GoalProgress>({
+    score: 0,
+    chests: 0,
+    cleared: {},
+    challenge: {
+      bombsUsed: 0,
+      rainbowsUsed: 0,
+      rainbowsCreated: 0,
+    },
+  });
+
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
@@ -574,6 +733,20 @@ export const useMatch3 = (active: boolean = true) => {
     });
   }, []);
 
+   const damageDragon = useCallback((amount: number) => {
+    const dmg = Math.max(0, Math.floor(Number(amount) || 0));
+    if (dmg <= 0) return;
+
+    setDragonHp((prev) => {
+      const next = Math.max(0, prev - dmg);
+      dragonHpRef.current = next;
+      return next;
+    });
+
+    setDragonJustHit(true);
+    window.setTimeout(() => setDragonJustHit(false), 260);
+  }, []);
+
   const triggerMatchFx = useCallback((ids: string[], pops: ScorePop[]) => {
     setFlashIds(ids);
 
@@ -602,6 +775,27 @@ export const useMatch3 = (active: boolean = true) => {
     [setScoreSynced]
   );
 
+  const addChallengeProgress = useCallback((delta: Partial<ChallengeProgress>) => {
+    const bombsUsed = Math.max(0, Math.floor(Number(delta.bombsUsed) || 0));
+    const rainbowsUsed = Math.max(0, Math.floor(Number(delta.rainbowsUsed) || 0));
+    const rainbowsCreated = Math.max(0, Math.floor(Number(delta.rainbowsCreated) || 0));
+
+    if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0) return;
+
+    setProgress((p) => {
+      const next: GoalProgress = {
+        ...p,
+        challenge: {
+          bombsUsed: (p.challenge?.bombsUsed ?? 0) + bombsUsed,
+          rainbowsUsed: (p.challenge?.rainbowsUsed ?? 0) + rainbowsUsed,
+          rainbowsCreated: (p.challenge?.rainbowsCreated ?? 0) + rainbowsCreated,
+        },
+      };
+      progressRef.current = next;
+      return next;
+    });
+  }, []);
+
   const countCleared = useCallback((clearedGems: Gem[]): void => {
     const clearedDelta: Record<string, number> = {};
     for (const m of clearedGems) {
@@ -619,6 +813,15 @@ export const useMatch3 = (active: boolean = true) => {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+  const rules = getLevelRules(level);
+  if (rules.challenge?.type !== "dragon") return;
+  if (dragonHp > 0) return;
+  if (gameOver) return;
+
+  setGameOver(true);
+}, [dragonHp, level, gameOver]);
 
   useEffect(() => {
     if (mode !== "moves") return;
@@ -641,6 +844,7 @@ export const useMatch3 = (active: boolean = true) => {
     setGameOver(true);
   }, [mode, timeLeftSec]);
 
+  
   const ensurePlayable = useCallback((g: Gem[], lvl: number) => {
     const size = boardSizeRef.current;
     const m = maskRef.current;
@@ -648,10 +852,15 @@ export const useMatch3 = (active: boolean = true) => {
 
     const minMoves = lvl >= 11 ? 6 : 1;
 
-    if (findMatches(g, size, m).length === 0 && countPossibleMoves(g, size, m) >= minMoves) return g;
+    if (findMatches(g, size, m).length === 0 && countPossibleMoves(g, size, m) >= minMoves) {
+      return g;
+    }
 
     const shuffled = shuffleToPlayable(g, size, m, pool, minMoves, 220);
-    if (findMatches(shuffled, size, m).length === 0 && countPossibleMoves(shuffled, size, m) >= minMoves) {
+    if (
+      findMatches(shuffled, size, m).length === 0 &&
+      countPossibleMoves(shuffled, size, m) >= minMoves
+    ) {
       return shuffled;
     }
 
@@ -670,6 +879,8 @@ export const useMatch3 = (active: boolean = true) => {
 
       const size = boardSizeRef.current;
       const m = maskRef.current;
+      const rules = getLevelRules(lvl);
+      const isDragonLevel = rules.challenge?.type === "dragon";
 
       try {
         let cascades = 0;
@@ -688,11 +899,20 @@ export const useMatch3 = (active: boolean = true) => {
             break;
           }
 
+          if (createPower?.power === "bomb") {
+            addChallengeProgress({ bombsUsed: 1 });
+          }
+          if (createPower?.power === "rainbow") {
+            addChallengeProgress({ rainbowsCreated: 1 });
+          }
+
           const clearIds = new Set<string>(matches.map((g) => g.id));
 
           if (createPower) {
             clearIds.delete(createPower.keepId);
-            activeGems = activeGems.map((g) => (g.id === createPower.keepId ? { ...g, power: createPower.power } : g));
+            activeGems = activeGems.map((g) =>
+              g.id === createPower.keepId ? { ...g, power: createPower.power } : g
+            );
           }
 
           expandClearIdsByPowers(activeGems, size, m, clearIds);
@@ -711,6 +931,14 @@ export const useMatch3 = (active: boolean = true) => {
 
           addScore(clearedGems.length * 10 * combo);
           countCleared(clearedGems);
+
+          if (isDragonLevel) {
+            const normalHitCount = clearedGems.filter((g) => g.type !== "chest").length;
+            const baseDamage = Math.max(1, Math.floor(normalHitCount / 6));
+            const comboBonus = combo >= 3 ? 1 : 0;
+            const powerBonus = createPower ? 1 : 0;
+            damageDragon(baseDamage + comboBonus + powerBonus);
+          }
 
           safePlay(combo === 1 ? "match" : "combo");
           combo++;
@@ -736,13 +964,20 @@ export const useMatch3 = (active: boolean = true) => {
         }
 
         activeGems = ensurePlayable(activeGems, lvl);
+
+        if (!hasAnyMove(activeGems, size, m)) {
+          const minMoves = lvl >= 11 ? 6 : 1;
+          activeGems = shuffleToPlayable(activeGems, size, m, activeTypesRef.current, minMoves, 320);
+          activeGems = ensurePlayable(activeGems, lvl);
+        }
+
         setGems([...activeGems]);
       } finally {
         setIsProcessing(false);
         processingRef.current = false;
       }
     },
-    [addScore, countCleared, safePlay, ensurePlayable, triggerMatchFx]
+    [addScore, countCleared, safePlay, ensurePlayable, triggerMatchFx, addChallengeProgress, damageDragon]
   );
 
   const startNewGame = useCallback(
@@ -754,6 +989,8 @@ export const useMatch3 = (active: boolean = true) => {
 
       setGameOver(false);
       setStars(0);
+      starsRef.current = 0;
+
       setShuffleUses(1);
       shuffleUsesRef.current = 1;
 
@@ -761,6 +998,13 @@ export const useMatch3 = (active: boolean = true) => {
       setScorePops([]);
       setSelectedGem(null);
       setFoundChests(0);
+      setArmedBooster(null);
+      setIsProcessing(false);
+      setIsShuffling(false);
+      processingRef.current = false;
+
+      setScore(0);
+      scoreRef.current = 0;
 
       const cfg = getLevelConfig(lvl, GEM_TYPES_ALL.length);
       setBoardSize(cfg.boardSize);
@@ -770,47 +1014,69 @@ export const useMatch3 = (active: boolean = true) => {
 
       const pool = getActiveGemTypesForLevel(lvl, cfg.gemCount);
       setActiveTypes(pool);
+      activeTypesRef.current = pool;
 
       const shardCfg = getShardConfig(lvl);
       const rules = getLevelRules(lvl);
 
-      let nextMoves = 0;
+            setDragonJustHit(false);
 
+      if (rules.challenge?.type === "dragon") {
+        const hp = Math.max(0, rules.challenge.hp);
+        setDragonHp(hp);
+        dragonHpRef.current = hp;
+      } else {
+        setDragonHp(0);
+        dragonHpRef.current = 0;
+      }
       if (shardCfg) {
         setMode("timed");
         setTimeLimitSec(shardCfg.timeLimitSec);
         setTimeLeftSec(shardCfg.timeLimitSec);
+
         const jitter = Math.random() < 0.5 ? 0 : 1;
-        nextMoves = shardCfg.moveLimit + jitter;
+        setMovesSynced(shardCfg.moveLimit + jitter);
+      } else if (rules.timed?.seconds && rules.timed.seconds > 0) {
+        setMode("timed");
+
+        const bs = cfg.boardSize;
+        const minT = 150;
+        const maxT = bs >= 9 ? 210 : bs >= 8 ? 195 : 180;
+        const sec = clamp(Math.floor(rules.timed.seconds), minT, maxT);
+
+        setTimeLimitSec(sec);
+        setTimeLeftSec(sec);
+
+        setMovesSynced(clamp(rules.moves, 16, 34));
       } else {
         setMode("moves");
         setTimeLimitSec(0);
         setTimeLeftSec(0);
 
-       if (lvl <= 120) {
-         if (lvl <= 10) nextMoves = 14;
-         else if (lvl <= 30) nextMoves = 16;
-         else if (lvl <= 50) nextMoves = 25;   // <-- ez a lényeg: 31–50
-         else if (lvl <= 90) nextMoves = 28;   // <-- 51–90
-         else nextMoves = 25;                  // <-- 91–120 (maradhat 25)
-       } else {
-         const base = 30 - Math.floor((cfg.gemCount - 5) * 1.2);
-         const rnd = Math.floor(Math.random() * 3) - 1;
-         nextMoves = clamp(base + rnd, 16, 30);
-    }
+        setMovesSynced(clamp(rules.moves, 12, 34));
       }
 
-      setMovesSynced(nextMoves);
-
-      // ✅ FIX: targetScore sosem lehet 0 (különben instant 1★/win)
-      // Ha rules.goal.type !== "score", akkor is adunk egy minimális célpontot.
       const rawTarget = rules.goal.type === "score" ? (rules.goal as any).target : 0;
-      const safeTarget = Math.max(100, Math.floor(Number(rawTarget) || 0));
+      const minTarget = lvl >= 200 ? 2000 : 600;
+      const maxTarget = 4500;
+      const safeTarget = Math.min(
+        maxTarget,
+        Math.max(minTarget, Math.floor(Number(rawTarget) || 0))
+      );
+
       setTargetScore(safeTarget);
 
-      setScoreSynced(0);
+      const resetProgress: GoalProgress = {
+        score: 0,
+        chests: 0,
+        cleared: {},
+        challenge: {
+          bombsUsed: 0,
+          rainbowsUsed: 0,
+          rainbowsCreated: 0,
+        },
+      };
 
-      const resetProgress: GoalProgress = { score: 0, chests: 0, cleared: {} };
       setProgress(resetProgress);
       progressRef.current = resetProgress;
 
@@ -818,6 +1084,7 @@ export const useMatch3 = (active: boolean = true) => {
       const fresh = rerollPlayable(cfg.boardSize, cfg.mask, pool, minMoves, 700);
       const clean = ensurePlayable(fresh, lvl);
       setGems(clean);
+      gemsRef.current = clean;
 
       window.setTimeout(() => {
         if (processingRef.current) return;
@@ -829,7 +1096,7 @@ export const useMatch3 = (active: boolean = true) => {
         if (findMatches(clean, size, m).length > 0) processMatches(clean, lvl);
       }, 0);
     },
-    [processMatches, ensurePlayable, setMovesSynced, setScoreSynced]
+    [processMatches, ensurePlayable, setMovesSynced, starsRef]
   );
 
   const shuffleBoard = useCallback(async () => {
@@ -846,7 +1113,9 @@ export const useMatch3 = (active: boolean = true) => {
 
       setShuffleUses((u) => u - 1);
       setSelectedGem(null);
+      setArmedBooster(null);
       setGems(shuffled);
+      gemsRef.current = shuffled;
 
       await wait(220);
       await processMatches(shuffled, levelRef.current);
@@ -854,6 +1123,131 @@ export const useMatch3 = (active: boolean = true) => {
       setIsShuffling(false);
     }
   }, [isProcessing, isShuffling, processMatches]);
+
+  const armBooster = useCallback((type: BoosterType) => {
+    setSelectedGem(null);
+    setArmedBooster((prev) => (prev === type ? null : type));
+  }, []);
+
+  const cancelArmedBooster = useCallback(() => {
+    setArmedBooster(null);
+  }, []);
+
+  const addBonusMoves = useCallback(
+    (n: number) => {
+      const add = Math.max(0, Math.floor(Number(n) || 0));
+      if (add <= 0) return;
+      setMovesSynced((m) => m + add);
+    },
+    [setMovesSynced]
+  );
+
+  const activateBoosterOnGem = useCallback(
+    async (booster: BoosterType, gem: Gem) => {
+      const size = boardSizeRef.current;
+      const m = maskRef.current;
+      const current = gemsRef.current.map((g) => ({ ...g }));
+      const clearIds = new Set<string>();
+      const rules = getLevelRules(levelRef.current);
+      const isDragonLevel = rules.challenge?.type === "dragon";
+
+      const grid = buildGrid(size, m, current);
+      const addByCell = (x: number, y: number) => {
+        if (!inBounds(x, y, size)) return;
+        if (!m[y]?.[x]) return;
+        const g = grid[y][x];
+        if (!g) return;
+        clearIds.add(g.id);
+      };
+
+      if (booster === "bomb") {
+        addChallengeProgress({ bombsUsed: 1 });
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) addByCell(gem.x + dx, gem.y + dy);
+        }
+        safePlay("bomb");
+      } else if (booster === "striped") {
+        for (let x = 0; x < size; x++) addByCell(x, gem.y);
+        for (let y = 0; y < size; y++) addByCell(gem.x, y);
+        safePlay("stripe_h");
+      } else if (booster === "rainbow") {
+        addChallengeProgress({ rainbowsUsed: 1 });
+        if (gem.type === "chest") {
+          clearIds.add(gem.id);
+        } else {
+          for (const gg of current) {
+            if (gg.type === gem.type) clearIds.add(gg.id);
+          }
+        }
+        safePlay("mega_bomb");
+      }
+
+      if (clearIds.size <= 0) {
+        setArmedBooster(null);
+        return;
+      }
+
+      const cleared = current.filter((gg) => clearIds.has(gg.id));
+      const chestHits = cleared.filter((gg) => gg.type === "chest").length;
+      const normalHits = cleared.filter((gg) => gg.type !== "chest");
+
+      triggerMatchFx(
+        Array.from(clearIds),
+        cleared.slice(0, 10).map((gg) => ({
+          id: `p_${newId()}_${gg.id}_B`,
+          x: gg.x,
+          y: gg.y,
+          value: gg.type === "chest" ? 500 : 20,
+        }))
+      );
+
+      if (chestHits > 0) {
+        setFoundChests((c) => c + chestHits);
+        setProgress((p) => {
+          const next: GoalProgress = { ...p, chests: p.chests + chestHits };
+          progressRef.current = next;
+          return next;
+        });
+      }
+
+      if (normalHits.length > 0) countCleared(normalHits);
+
+      if (isDragonLevel) {
+        const boosterDamage = booster === "rainbow" ? 3 : 2;
+        const hitDamage = Math.max(1, Math.floor(normalHits.length / 7));
+        damageDragon(boosterDamage + hitDamage);
+      }
+
+      addScore(normalHits.length * 12 + chestHits * 500);
+
+      let after = current.filter((gg) => !clearIds.has(gg.id));
+      setGems(after);
+      gemsRef.current = after;
+
+      await wait(CLEAR_MS);
+
+      const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
+      after = applyGravityAndRefill(
+        after,
+        activeTypesRef.current,
+        size,
+        m,
+        cfg.chestChanceBoss,
+        cfg.chestChanceNormal,
+        levelRef.current
+      );
+
+      setGems(after);
+      gemsRef.current = after;
+
+      await wait(GRAVITY_MS);
+      await processMatches(after, levelRef.current);
+
+      setSelectedGem(null);
+      setArmedBooster(null);
+    },
+    [addScore, countCleared, processMatches, safePlay, triggerMatchFx, addChallengeProgress, damageDragon]
+  );
 
   const selectGem = useCallback(
     async (gem: Gem) => {
@@ -867,6 +1261,18 @@ export const useMatch3 = (active: boolean = true) => {
       const size = boardSizeRef.current;
       const m = maskRef.current;
       const current = gemsRef.current;
+      const rules = getLevelRules(levelRef.current);
+      const isDragonLevel = rules.challenge?.type === "dragon";
+
+      if (armedBooster) {
+        setIsProcessing(true);
+        try {
+          await activateBoosterOnGem(armedBooster, gem);
+        } finally {
+          setIsProcessing(false);
+        }
+        return;
+      }
 
       if (gem.type === "chest") {
         safePlay(Math.random() < 0.5 ? "chest_blue" : "chest_purple");
@@ -878,7 +1284,13 @@ export const useMatch3 = (active: boolean = true) => {
           return next;
         });
 
-        triggerMatchFx([gem.id], [{ id: `p_${newId()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 }]);
+        if (isDragonLevel) {
+          damageDragon(1);
+        }
+
+        triggerMatchFx([gem.id], [
+          { id: `p_${newId()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 },
+        ]);
 
         addScore(500);
 
@@ -896,6 +1308,8 @@ export const useMatch3 = (active: boolean = true) => {
         );
 
         setGems(refilled);
+        gemsRef.current = refilled;
+
         await wait(CLEAR_MS);
         await processMatches(refilled, levelRef.current);
 
@@ -907,6 +1321,7 @@ export const useMatch3 = (active: boolean = true) => {
         setSelectedGem(gem);
         return;
       }
+
       if (selectedGem.id === gem.id) {
         setSelectedGem(null);
         return;
@@ -921,7 +1336,6 @@ export const useMatch3 = (active: boolean = true) => {
         return;
       }
 
-      // ✅ FIX: csak EGYSZER vonunk le lépést egy szomszédos csere-kísérletnél
       if (mode === "moves") {
         setMovesSynced((mm) => Math.max(0, mm - 1));
       }
@@ -936,11 +1350,12 @@ export const useMatch3 = (active: boolean = true) => {
       });
 
       setGems(swapped);
+      gemsRef.current = swapped;
+
       await wait(SWAP_MS);
 
       const matches = findMatches(swapped, size, m);
 
-      // nincs match
       if (matches.length === 0) {
         const a = swapped.find((gg) => gg.id === selectedGem.id);
         const b = swapped.find((gg) => gg.id === gem.id);
@@ -948,6 +1363,7 @@ export const useMatch3 = (active: boolean = true) => {
 
         if (!hasPower) {
           setGems(original);
+          gemsRef.current = original;
           setSelectedGem(null);
           setIsProcessing(false);
 
@@ -958,26 +1374,51 @@ export const useMatch3 = (active: boolean = true) => {
             window.setTimeout(() => {
               if (!active) return;
               setGems(fixed);
+              gemsRef.current = fixed;
               setIsShuffling(false);
             }, 300);
           }
           return;
         }
 
-        // power aktiválás
         const powers = [a?.power, b?.power].filter(Boolean) as PowerType[];
 
-        if (powers.includes("bomb")) safePlay("bomb");
+        if (powers.includes("rainbow")) safePlay("mega_bomb");
+        else if (powers.includes("bomb")) safePlay("bomb");
         else if (powers.includes("stripe_h")) safePlay("stripe_h");
         else if (powers.includes("stripe_v")) safePlay("stripe_v");
-        else if (powers.includes("rainbow")) safePlay("mega_bomb");
         else safePlay("click");
 
         const clearIds = new Set<string>();
-        if (a?.power) clearIds.add(a.id);
-        if (b?.power) clearIds.add(b.id);
 
-        expandClearIdsByPowers(swapped, size, m, clearIds);
+        const isRainbowA = a?.power === "rainbow";
+        const isRainbowB = b?.power === "rainbow";
+
+        if (powers.filter((p) => p === "bomb").length > 0) {
+          addChallengeProgress({
+            bombsUsed: powers.filter((p) => p === "bomb").length,
+          });
+        }
+
+        const rainbowUsedCount = (isRainbowA ? 1 : 0) + (isRainbowB ? 1 : 0);
+
+        if (rainbowUsedCount > 0) {
+          addChallengeProgress({ rainbowsUsed: rainbowUsedCount });
+        }
+
+        if (isRainbowA && isRainbowB) {
+          for (const gg of swapped) if (gg.type !== "chest") clearIds.add(gg.id);
+        } else if (isRainbowA && b && b.type !== "chest") {
+          for (const gg of swapped) if (gg.type === b.type) clearIds.add(gg.id);
+          clearIds.add(a!.id);
+        } else if (isRainbowB && a && a.type !== "chest") {
+          for (const gg of swapped) if (gg.type === a.type) clearIds.add(gg.id);
+          clearIds.add(b!.id);
+        } else {
+          if (a?.power) clearIds.add(a.id);
+          if (b?.power) clearIds.add(b.id);
+          expandClearIdsByPowers(swapped, size, m, clearIds);
+        }
 
         const cleared = swapped.filter((gg) => clearIds.has(gg.id));
         triggerMatchFx(
@@ -989,6 +1430,20 @@ export const useMatch3 = (active: boolean = true) => {
             value: 20,
           }))
         );
+
+        if (isDragonLevel) {
+          const powerDamage =
+            (powers.includes("rainbow") ? 2 : 0) +
+            (powers.includes("bomb") ? 1 : 0) +
+            (powers.includes("stripe_h") || powers.includes("stripe_v") ? 1 : 0);
+
+          const hitDamage = Math.max(
+            1,
+            Math.floor(cleared.filter((gg) => gg.type !== "chest").length / 7)
+          );
+
+          damageDragon(powerDamage + hitDamage);
+        }
 
         addScore(cleared.length * 12);
         countCleared(cleared);
@@ -1007,6 +1462,8 @@ export const useMatch3 = (active: boolean = true) => {
         );
 
         setGems(after);
+        gemsRef.current = after;
+
         await wait(GRAVITY_MS);
         await processMatches(after, levelRef.current);
 
@@ -1015,7 +1472,6 @@ export const useMatch3 = (active: boolean = true) => {
         return;
       }
 
-      // van match
       safePlay("click");
       setSelectedGem(null);
 
@@ -1039,14 +1495,17 @@ export const useMatch3 = (active: boolean = true) => {
       ensurePlayable,
       triggerMatchFx,
       setMovesSynced,
+      armedBooster,
+      activateBoosterOnGem,
+      addChallengeProgress,
+      damageDragon,
     ]
   );
 
   useEffect(() => {
     if (gameOver) return;
 
-    // ✅ extra safety: ha bármiért 0 lenne, ne legyen instant csillag
-    const safeTarget = Math.max(100, Math.floor(Number(targetScore) || 0));
+    const safeTarget = Math.max(600, Math.floor(Number(targetScore) || 0));
 
     const star1 = safeTarget;
     const star2 = Math.floor(safeTarget * 1.5);
@@ -1058,13 +1517,29 @@ export const useMatch3 = (active: boolean = true) => {
     if (earnedStars !== stars) setStars(earnedStars);
   }, [gameOver, progress.score, targetScore, stars]);
 
+  const currentRules = getLevelRules(level);
+  const currentChallenge = currentRules.challenge ?? { type: "none" as const };
+
+  const goalMet = isGoalMet(currentRules.goal, {
+    score: progress.score,
+    chests: progress.chests,
+    cleared: progress.cleared,
+  });
+
+  const challengeMet = isChallengeMet(currentChallenge, progress, dragonHp);
+  const passed =
+  currentChallenge.type === "dragon"
+    ? challengeMet
+    : goalMet && challengeMet;
+  const canGoNext = passed;
+
   return {
     gameOver,
-    won: false,
+    won: passed,
     stars,
 
-    passed: stars >= 1,
-    canGoNext: stars >= 3,
+    passed,
+    canGoNext,
 
     gems,
     score,
@@ -1093,5 +1568,18 @@ export const useMatch3 = (active: boolean = true) => {
 
     starsRef,
     isShuffling,
+
+    armedBooster,
+    armBooster,
+    cancelArmedBooster,
+    addBonusMoves,
+
+        currentChallenge,
+    challengeProgress: progress.challenge,
+    goalMet,
+    challengeMet,
+    dragonHp,
+    dragonMaxHp: currentChallenge.type === "dragon" ? currentChallenge.hp : 0,
+    dragonJustHit,
   };
 };

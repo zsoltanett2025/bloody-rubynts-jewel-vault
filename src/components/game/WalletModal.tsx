@@ -28,6 +28,7 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
   const [withdrawAmount, setWithdrawAmount] = useState<number>(WITHDRAW_MIN_BR);
   const [withdrawWallet, setWithdrawWallet] = useState<string>("");
   const [withdrawNote, setWithdrawNote] = useState<string>("Payout within 24–48 hours.");
+  const [withdrawEmail, setWithdrawEmail] = useState<string>("");
   const [successId, setSuccessId] = useState<string | null>(null);
   const [successText, setSuccessText] = useState<string>("");
 
@@ -42,20 +43,20 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
   const brBalance = progress?.rubyntBalance ?? 0;
 
   const isAdmin = (() => {
-  try {
-    return localStorage.getItem("br_admin") === "1";
-  } catch {
-    return false;
-  }
-})();
-   
-const adminRaw = (() => {
-  try {
-    return localStorage.getItem("br_admin");
-  } catch {
-    return "err";
-  }
-})();
+    try {
+      return localStorage.getItem("br_admin") === "1";
+    } catch {
+      return false;
+    }
+  })();
+
+  const adminRaw = (() => {
+    try {
+      return localStorage.getItem("br_admin");
+    } catch {
+      return "err";
+    }
+  })();
 
   useEffect(() => {
     // ESC to close
@@ -73,20 +74,23 @@ const adminRaw = (() => {
 
   const mailtoHref = useMemo(() => {
     if (!successId || !successText) return "";
-    const to = PAYMENTS_EMAIL;
 
-    const fakeReq: any = {
+    const fakeReq = {
       id: successId,
       userKey: getUserKeyFromStorage(),
       walletAddress: withdrawWallet,
       amount: withdrawAmount,
       note: withdrawNote,
       createdAt: Date.now(),
-      status: "pending",
+      status: "pending" as const,
+      email: withdrawEmail,
     };
 
-    return buildWithdrawMailto({ to, req: fakeReq });
-  }, [successId, successText, withdrawWallet, withdrawAmount, withdrawNote]);
+    return buildWithdrawMailto({
+      to: PAYMENTS_EMAIL,
+      req: fakeReq,
+    });
+  }, [successId, successText, withdrawWallet, withdrawAmount, withdrawNote, withdrawEmail]);
 
   return (
     <div
@@ -101,8 +105,11 @@ const adminRaw = (() => {
           <div>
             <h3 className="font-bold">Wallet</h3>
             <div className="text-[11px] text-white/40">
-  Admin debug: <span className="text-white/70">{String(isAdmin)} / raw:{String(adminRaw)}</span>
-</div>
+              Admin debug:{" "}
+              <span className="text-white/70">
+                {String(isAdmin)} / raw:{String(adminRaw)}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -259,6 +266,15 @@ const adminRaw = (() => {
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="font-semibold mb-2">Withdraw (Manual payout)</div>
 
+          <label className="text-xs text-white/60">Email</label>
+          <input
+            className="mt-1 mb-2 w-full rounded-xl bg-black/40 border border-white/10 p-2 outline-none focus:border-red-400/40 text-sm"
+            type="email"
+            value={withdrawEmail}
+            onChange={(e) => setWithdrawEmail(e.target.value)}
+            placeholder="your@email.com"
+          />
+
           <label className="text-xs text-white/60">Wallet address</label>
           <input
             className="mt-1 mb-2 w-full rounded-xl bg-black/40 border border-white/10 p-2 outline-none focus:border-red-400/40 text-sm"
@@ -296,11 +312,18 @@ const adminRaw = (() => {
               try {
                 const userKey = getUserKeyFromStorage();
 
+                if (!withdrawEmail.trim()) {
+                  setErr("Email is required.");
+                  setBusy(false);
+                  return;
+                }
+
                 const res = createWithdrawRequest({
                   userKey,
                   walletAddress: withdrawWallet,
                   amount: withdrawAmount,
                   note: withdrawNote,
+                  email: withdrawEmail.trim(),
                 });
 
                 if (!res.ok) {
@@ -309,7 +332,6 @@ const adminRaw = (() => {
                   return;
                 }
 
-                // Refresh UI balance
                 try {
                   refreshRubyntBalance();
                 } catch {}

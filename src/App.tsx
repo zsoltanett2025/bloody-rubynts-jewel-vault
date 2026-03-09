@@ -1,10 +1,10 @@
-// src/App.tsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { t } from "./i8n/i18n";
 import { IntroScreen } from "./components/IntroScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { playSound, unlockAudio, playMusic } from "./utils/audioManager";
-import { GameProvider, useGame } from "./components/game/GameState";
+import { GameProvider } from "./components/game/GameState";
+import { useGame } from "./components/game/GameState";
 import { LevelMap } from "./components/game/LevelMap";
 import { WalletModal } from "./components/game/WalletModal";
 import { ShopModal } from "./components/game/ShopModal";
@@ -14,8 +14,8 @@ import { assetUrl } from "./utils/assetUrl";
 import { StoryOverlay } from "./components/game/StoryOverlay";
 import { StorySidePanels } from "./components/game/StorySidePanels";
 import { isShardLevel, markShardFound } from "./utils/shards";
+import { ShardModal } from "./components/game/ShardModal";
 
-import { RubyProgressPanel } from "./components/game/RubyProgressPanel";
 import confetti from "canvas-confetti";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoginPage as LoginPageComp } from "./pages/LoginPage";
@@ -23,7 +23,9 @@ import { useAuth } from "./app/auth/AuthProvider";
 
 import { useMatch3 } from "./components/game/useMatch3";
 import { GemComponent } from "./components/game/GemComponent";
-
+import { DailyChestModal } from "./components/daily/DailyChestModal";
+import { DevPanel } from "./components/dev/DevPanel";
+import { getLevelRules, type LevelRules } from "./components/game/levels";
 import {
   rewardLevelOnce,
   isHardLevel67,
@@ -35,14 +37,14 @@ const LS_CURRENT = "br_currentLevel";
 const LS_UNLOCKED = "br_unlockedLevel";
 const LS_SEEN_INTRO = "br_seenIntro";
 const LS_SEEN_WELCOME = "br_seenWelcome";
-
-// ✅ shards local state persistence (safe, doesn’t break existing shards.ts)
+const LS_INF_LIFE_UNTIL = "br_infinite_life_until_v1";
 const LS_SHARDS_FOUND = "br_shards_found_levels_v1";
 
-// 15 shard levels (full saga plan – ok even if TOTAL_LEVELS is smaller for now)
-const SHARD_LEVELS = [67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000];
+const SHARD_LEVELS = [
+  67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000,
+];
 
-const TOTAL_LEVELS = 200;
+const TOTAL_LEVELS = 1000;
 
 const MUSIC_MENU = assetUrl("assets/audio/music/music_menu.mp3");
 const MUSIC_BOSS_01 = assetUrl("assets/audio/music/music_boss_01.mp3");
@@ -70,9 +72,16 @@ const MUSIC_BOSS_19 = assetUrl("assets/audio/music/music_boss_19.mp3");
 const MUSIC_BOSS_20 = assetUrl("assets/audio/music/music_boss_20.mp3");
 const MUSIC_BOSS_21 = assetUrl("assets/audio/music/music_boss_21.mp3");
 const MUSIC_BOSS_22 = assetUrl("assets/audio/music/music_boss_22.mp3");
+
 function clampLevel(n: number) {
   const v = Number(n);
   return Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+function safeStoredLevel(value: string | null, fallback: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return clampLevel(n);
 }
 
 function pickBgByBlock(
@@ -120,14 +129,9 @@ function calcStars(score: number, targetScore: number) {
 function shardIndexForLevel(level: number) {
   return SHARD_LEVELS.indexOf(clampLevel(level));
 }
+
 function shardValueByIndex(idx: number) {
-  // 10, 15, 20, ... (simple and clear)
   return 10 + idx * 5;
-}
-function shardImageByIndex(idx: number) {
-  const n = String(idx + 1).padStart(2, "0");
-  // user’s confirmed path: public/assets/backgrounds/map/ruby/ruby_shard_09.png
-  return assetUrl(`assets/backgrounds/map/ruby/ruby_shard_${n}.png`);
 }
 
 function readShardsFoundFromStorage(): number[] {
@@ -139,7 +143,6 @@ function readShardsFoundFromStorage(): number[] {
     const cleaned = arr
       .map((x) => clampLevel(Number(x)))
       .filter((x) => Number.isFinite(x) && x > 0);
-    // unique
     return Array.from(new Set(cleaned));
   } catch {
     return [];
@@ -152,100 +155,121 @@ function writeShardsFoundToStorage(levels: number[]) {
   } catch {}
 }
 
-// ✅ Shards modal (kept inside App.tsx so nothing else is required)
-function ShardsModal(props: {
-  onClose: () => void;
-  foundLevels: number[];
-}) {
-  const foundSet = useMemo(() => new Set(props.foundLevels), [props.foundLevels]);
+function getInfiniteLifeLeftMs(): number {
+  try {
+    const until = Number(localStorage.getItem(LS_INF_LIFE_UNTIL) || 0);
+    if (!Number.isFinite(until)) return 0;
+    return Math.max(0, until - Date.now());
+  } catch {
+    return 0;
+  }
+}
 
-  return (
-    <div
-      className="fixed inset-0 z-[25000] bg-black/70 flex items-center justify-center p-4"
-      onClick={props.onClose}
-    >
-      <div
-        className="w-full max-w-2xl bg-[#120404] border border-red-900/40 rounded-2xl p-4 text-white"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-3">
-          <div>
-            <h3 className="font-bold">Ruby Shards</h3>
-            <div className="text-[11px] text-white/45">
-              Progress:{" "}
-              <span className="text-white/75">
-                {props.foundLevels.length}/{SHARD_LEVELS.length}
-              </span>
-            </div>
-          </div>
+function formatDurationShort(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
-          <button
-            onClick={props.onClose}
-            className="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/15 transition"
-            type="button"
-          >
-            Close
-          </button>
-        </div>
+function isDevToolsAllowed(): boolean {
+  try {
+    if (import.meta.env.DEV) return true;
+    const keys = ["admin", "br_admin", "bradmin_1", "br_admin_1", "bradmin"];
+    return keys.some((k) => localStorage.getItem(k) === "1");
+  } catch {
+    return Boolean(import.meta.env.DEV);
+  }
+}
 
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {SHARD_LEVELS.map((lvl, idx) => {
-            const found = foundSet.has(lvl);
-            const value = shardValueByIndex(idx);
-            const img = shardImageByIndex(idx);
+function getObjectiveIcon(rules: LevelRules): string {
+  if (rules.challenge?.type === "lava") {
+    return assetUrl("assets/objectives/objective_dragon_caged_01.png");
+  }
 
-            return (
-              <div
-                key={lvl}
-                className={`rounded-xl border p-2 bg-black/30 ${
-                  found ? "border-red-300/50" : "border-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-[11px] text-white/50">Shard {idx + 1}</div>
-                  <div className={`text-[11px] ${found ? "text-red-200" : "text-white/35"}`}>
-                    {found ? "FOUND" : "LOCKED"}
-                  </div>
-                </div>
+  if (rules.challenge?.type === "bomb_collect") {
+    return assetUrl("assets/objectives/objective_dragon_caged_02.png");
+  }
 
-                <div className="rounded-lg bg-black/40 border border-white/10 flex items-center justify-center aspect-square overflow-hidden">
-                  {/* If image missing, it will just not show – still safe */}
-                  <img
-                    src={img}
-                    alt={`Ruby shard ${idx + 1}`}
-                    className={`w-full h-full object-contain ${found ? "" : "opacity-40 grayscale"}`}
-                    draggable={false}
-                  />
-                </div>
+  if (rules.challenge?.type === "rainbow_focus") {
+    return assetUrl("assets/objectives/objective_dragon_caged_03.png");
+  }
 
-                <div className="mt-2 text-[11px] text-white/45">
-                  Level: <span className="text-white/70">{lvl}</span>
-                </div>
-                <div className="text-[11px] text-white/45">
-                  Value:{" "}
-                  <span className={found ? "text-red-200 font-semibold" : "text-white/60"}>
-                    {value} BR
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+  if (rules.challenge?.type === "dragon") {
+    return assetUrl("assets/objectives/objective_dragon_caged_02.png");
+  }
 
-        <div className="mt-3 text-[11px] text-white/40">
-          Tip: shards are earned on shard levels (special challenge stages). When you earn one, you also get the BR value.
-        </div>
-      </div>
-    </div>
-  );
+  if (rules.goal.type === "chest") {
+    return GAME_ASSETS.chests.purple;
+  }
+
+  if (rules.goal.type === "clear") {
+    const gemMap: Record<string, string> = {
+      ruby: GAME_ASSETS.gems.ruby_round,
+      blood: GAME_ASSETS.gems.blood_drop,
+      amethyst: GAME_ASSETS.gems.amethyst_oval,
+      onyx: GAME_ASSETS.gems.onyx_round,
+      silver: GAME_ASSETS.gems.emerald_round,
+    };
+    return gemMap[rules.goal.gem] ?? GAME_ASSETS.gems.ruby_round;
+  }
+
+  return GAME_ASSETS.gems.ruby_round;
+}
+
+function getObjectiveTitle(rules: LevelRules): string {
+  if (rules.challenge?.type === "lava") return "Challenge";
+  if (rules.challenge?.type === "bomb_collect") return "Challenge";
+  if (rules.challenge?.type === "rainbow_focus") return "Challenge";
+  if (rules.challenge?.type === "dragon") return "Dragon Boss";
+
+  if (rules.goal.type === "score") return "Objective";
+  if (rules.goal.type === "clear") return "Objective";
+  if (rules.goal.type === "chest") return "Objective";
+
+  return "Objective";
+}
+
+function getObjectiveText(
+  rules: LevelRules,
+  progress: { score: number; chests: number; cleared: Record<string, number> },
+  dragonHp?: number
+): string {
+  const challenge = rules.challenge;
+
+  if (challenge?.type === "lava") {
+    return `Lava level • intensity ${challenge.intensity}`;
+  }
+
+  if (challenge?.type === "bomb_collect") {
+    return `Bomb challenge • target ${challenge.count}`;
+  }
+
+  if (challenge?.type === "rainbow_focus") {
+    return `Rainbow challenge • target ${challenge.count}`;
+  }
+
+  if (challenge?.type === "dragon") {
+    return `Defeat the dragon • HP ${Math.max(0, dragonHp ?? challenge.hp)}`;
+  }
+
+  if (rules.goal.type === "score") {
+    return `Reach ${rules.goal.target} score • now ${progress.score}`;
+  }
+
+  if (rules.goal.type === "clear") {
+    const done = progress.cleared?.[rules.goal.gem] ?? 0;
+    return `Collect ${rules.goal.count} ${rules.goal.gem} • ${done}/${rules.goal.count}`;
+  }
+
+  if (rules.goal.type === "chest") {
+    return `Open ${rules.goal.count} chest • ${progress.chests}/${rules.goal.count}`;
+  }
+
+  return "";
 }
 
 const MainGame = ({ onLogout }: { onLogout: () => void }) => {
-  const [lang] = useState<"hu" | "en">("en");
-
-  type AppScreen = "menu" | "map" | "game";
-  const [screen, setScreen] = useState<AppScreen>("menu");
-
   const {
     progress,
     completeLevel,
@@ -253,50 +277,118 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
     lives,
     maxLives,
     spendLife,
+
+    addRubynts,
+    addInventoryItem,
+    consumeInventoryItem,
+
     refreshRubyntBalance,
   } = useGame();
 
+  const [lang] = useState<"hu" | "en">("en");
+
+  type AppScreen = "menu" | "map" | "game";
+  const [screen, setScreen] = useState<AppScreen>("menu");
+
   useEffect(() => {
-  refreshRubyntBalance();
-}, [refreshRubyntBalance]);
- 
-const [showWallet, setShowWallet] = useState(false);
+    refreshRubyntBalance();
+  }, [refreshRubyntBalance]);
+
+  const [showWallet, setShowWallet] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [boosterHint, setBoosterHint] = useState<string>("");
 
   const [endOpen, setEndOpen] = useState(false);
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
 
-  // ✅ Shards UI state + persisted progress
   const [showShards, setShowShards] = useState(false);
-  const [shardsFoundLevels, setShardsFoundLevels] = useState<number[]>(() => readShardsFoundFromStorage());
+  const [shardsFoundLevels, setShardsFoundLevels] = useState<number[]>(() =>
+    readShardsFoundFromStorage()
+  );
   const shardCount = shardsFoundLevels.length;
 
   const [currentLevel, setCurrentLevel] = useState(() => {
-    const raw = localStorage.getItem(LS_CURRENT);
-    return clampLevel(Number(raw ?? 1));
-  });
+  const rawCurrent = localStorage.getItem(LS_CURRENT);
+  return safeStoredLevel(rawCurrent, 1);
+});
 
-  const [unlockedLevel, setUnlockedLevel] = useState(() => {
-    const raw = localStorage.getItem(LS_UNLOCKED);
-    return clampLevel(Number(raw ?? 1));
-  });
+const [unlockedLevel, setUnlockedLevel] = useState(() => {
+  const rawUnlocked = localStorage.getItem(LS_UNLOCKED);
+  const safeUnlocked = safeStoredLevel(rawUnlocked, 1);
+  const rawCurrent = localStorage.getItem(LS_CURRENT);
+  const safeCurrent = safeStoredLevel(rawCurrent, 1);
+
+  return Math.max(safeUnlocked, safeCurrent);
+});
+
+  const [infLifeLeftMs, setInfLifeLeftMs] = useState(() => getInfiniteLifeLeftMs());
 
   useEffect(() => localStorage.setItem(LS_CURRENT, String(currentLevel)), [currentLevel]);
   useEffect(() => localStorage.setItem(LS_UNLOCKED, String(unlockedLevel)), [unlockedLevel]);
 
-  // ✅ keep shards in localStorage
   useEffect(() => {
     writeShardsFoundToStorage(shardsFoundLevels);
   }, [shardsFoundLevels]);
 
+  const [showDaily, setShowDaily] = useState(false);
+
+  const allowed = false;
+  const [devOpen, setDevOpen] = useState(true);
+
+  useEffect(() => {
+    if (!allowed) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === "L" || e.key === "l")) {
+        e.preventDefault();
+        setDevOpen((v) => !v);
+        console.log("DEV PANEL TOGGLE");
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [allowed]);
+
+  useEffect(() => {
+    setInfLifeLeftMs(getInfiniteLifeLeftMs());
+
+    const id = window.setInterval(() => {
+      setInfLifeLeftMs(getInfiniteLifeLeftMs());
+    }, 1000);
+
+    const onFocus = () => setInfLifeLeftMs(getInfiniteLifeLeftMs());
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!boosterHint) return;
+    const id = window.setTimeout(() => setBoosterHint(""), 1800);
+    return () => window.clearTimeout(id);
+  }, [boosterHint]);
+
+  const openDaily = () => {
+    try {
+      refreshRubyntBalance();
+    } catch {}
+    setShowDaily(true);
+  };
+
   const addShardFound = useCallback((level: number) => {
     const L = clampLevel(level);
+    if (!SHARD_LEVELS.includes(L)) return;
+
     setShardsFoundLevels((prev) => {
       if (prev.includes(L)) return prev;
+
       const next = [...prev, L];
-      // keep stable order by shard list order (nice UI)
       next.sort((a, b) => SHARD_LEVELS.indexOf(a) - SHARD_LEVELS.indexOf(b));
       return next;
     });
@@ -313,38 +405,34 @@ const [showWallet, setShowWallet] = useState(false);
     if (lvl >= 51 && lvl <= 60) return MUSIC_GAME_01;
     if (lvl >= 61 && lvl <= 70) return MUSIC_GAME_02;
     if (lvl >= 71 && lvl <= 80) return MUSIC_MENU_01;
-   
-     // 🔁 Ismétlés 81–160
 
     if (lvl >= 81 && lvl <= 90) return MUSIC_BOSS_01;
     if (lvl >= 91 && lvl <= 100) return MUSIC_BOSS_02;
     if (lvl >= 101 && lvl <= 110) return MUSIC_BOSS_03;
     if (lvl >= 111 && lvl <= 120) return MUSIC_BOSS_04;
     if (lvl >= 121 && lvl <= 130) return MUSIC_BOSS_05;
-
     if (lvl >= 131 && lvl <= 140) return MUSIC_GAME_01;
     if (lvl >= 141 && lvl <= 150) return MUSIC_GAME_02;
     if (lvl >= 151 && lvl <= 160) return MUSIC_MENU_01;
 
-    // 🔥 161–500
+    if (lvl >= 161 && lvl <= 180) return MUSIC_BOSS_06;
+    if (lvl >= 181 && lvl <= 200) return MUSIC_BOSS_07;
+    if (lvl >= 201 && lvl <= 220) return MUSIC_BOSS_08;
+    if (lvl >= 221 && lvl <= 240) return MUSIC_BOSS_09;
+    if (lvl >= 241 && lvl <= 260) return MUSIC_BOSS_10;
+    if (lvl >= 261 && lvl <= 280) return MUSIC_BOSS_11;
+    if (lvl >= 281 && lvl <= 300) return MUSIC_BOSS_12;
+    if (lvl >= 301 && lvl <= 320) return MUSIC_BOSS_13;
+    if (lvl >= 321 && lvl <= 340) return MUSIC_BOSS_14;
+    if (lvl >= 341 && lvl <= 360) return MUSIC_BOSS_15;
+    if (lvl >= 361 && lvl <= 380) return MUSIC_BOSS_16;
+    if (lvl >= 381 && lvl <= 400) return MUSIC_BOSS_17;
+    if (lvl >= 401 && lvl <= 420) return MUSIC_BOSS_18;
+    if (lvl >= 421 && lvl <= 440) return MUSIC_BOSS_19;
+    if (lvl >= 441 && lvl <= 460) return MUSIC_BOSS_20;
+    if (lvl >= 461 && lvl <= 480) return MUSIC_BOSS_21;
+    if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
 
-if (lvl >= 161 && lvl <= 180) return MUSIC_BOSS_06;
-if (lvl >= 181 && lvl <= 200) return MUSIC_BOSS_07;
-if (lvl >= 201 && lvl <= 220) return MUSIC_BOSS_08;
-if (lvl >= 221 && lvl <= 240) return MUSIC_BOSS_09;
-if (lvl >= 241 && lvl <= 260) return MUSIC_BOSS_10;
-if (lvl >= 261 && lvl <= 280) return MUSIC_BOSS_11;
-if (lvl >= 281 && lvl <= 300) return MUSIC_BOSS_12;
-if (lvl >= 301 && lvl <= 320) return MUSIC_BOSS_13;
-if (lvl >= 321 && lvl <= 340) return MUSIC_BOSS_14;
-if (lvl >= 341 && lvl <= 360) return MUSIC_BOSS_15;
-if (lvl >= 361 && lvl <= 380) return MUSIC_BOSS_16;
-if (lvl >= 381 && lvl <= 400) return MUSIC_BOSS_17;
-if (lvl >= 401 && lvl <= 420) return MUSIC_BOSS_18;
-if (lvl >= 421 && lvl <= 440) return MUSIC_BOSS_19;
-if (lvl >= 441 && lvl <= 460) return MUSIC_BOSS_20;
-if (lvl >= 461 && lvl <= 480) return MUSIC_BOSS_21;
-if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     return null;
   }
 
@@ -368,20 +456,114 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
       setVh(window.innerHeight);
     };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ MATCH-3
   const m3 = useMatch3(screen === "game");
 
-  // ✅ amikor screen vált, frissítsük a balance-t (nem bántja a játék logikát)
+  const levelRules = useMemo(() => {
+    const lvl = screen === "game" ? m3.level : currentLevel;
+    return getLevelRules(lvl);
+  }, [screen, m3.level, currentLevel]);
+
+  const objectiveData = useMemo(() => {
+    if (screen !== "game") {
+      return {
+        title: "",
+        text: "",
+        icon: "",
+      };
+    }
+
+    return {
+      title: getObjectiveTitle(levelRules),
+      text: getObjectiveText(
+        levelRules,
+        {
+          score: m3.score,
+          chests: m3.progress?.chests ?? 0,
+          cleared: m3.progress?.cleared ?? {},
+        },
+        m3.dragonHp
+      ),
+      icon: getObjectiveIcon(levelRules),
+    };
+  }, [screen, levelRules, m3.score, m3.progress, m3.dragonHp]);
+
   useEffect(() => {
     try {
       refreshRubyntBalance();
     } catch {}
   }, [screen, refreshRubyntBalance]);
 
-  // ✅ csak egyszer indítsuk el ugyanazt a levelt
+  useEffect(() => {
+    if (screen !== "game") {
+      m3.cancelArmedBooster?.();
+      setBoosterHint("");
+    }
+  }, [screen, m3]);
+
+  const handleArmBooster = useCallback(
+    (type: "bomb" | "striped" | "rainbow") => {
+      if (screen !== "game") return;
+      if (m3.isProcessing || m3.isShuffling) return;
+
+      if (m3.armedBooster === type) {
+        m3.cancelArmedBooster?.();
+        setBoosterHint("Booster selection cancelled.");
+        playSound("click");
+        return;
+      }
+
+      if (m3.armedBooster && m3.armedBooster !== type) {
+        setBoosterHint("Use or cancel the selected booster first.");
+        playSound("click");
+        return;
+      }
+
+      const key =
+        type === "bomb"
+          ? "bombs"
+          : type === "striped"
+            ? "stripedBombs"
+            : "rainbowBombs";
+
+      const ok = consumeInventoryItem(key, 1);
+      if (!ok) {
+        setBoosterHint("Not enough boosters.");
+        playSound("click");
+        return;
+      }
+
+      m3.armBooster?.(type);
+      setBoosterHint(
+        type === "bomb"
+          ? "Bomb selected. Tap a gem."
+          : type === "striped"
+            ? "Striped booster selected. Tap a gem."
+            : "Rainbow booster selected. Tap a gem."
+      );
+      playSound("click");
+    },
+    [screen, m3, consumeInventoryItem]
+  );
+
+  const handleUseExtraMoves = useCallback(() => {
+    if (screen !== "game") return;
+    if (m3.isProcessing || m3.isShuffling) return;
+
+    const ok = consumeInventoryItem("extraMoves", 1);
+    if (!ok) {
+      setBoosterHint("No +5 moves booster available.");
+      playSound("click");
+      return;
+    }
+
+    m3.addBonusMoves?.(5);
+    setBoosterHint("+5 moves used.");
+    playSound("click");
+  }, [screen, m3, consumeInventoryItem]);
+
   const lastStartedRef = useRef<number>(0);
   useEffect(() => {
     if (screen !== "game") return;
@@ -391,18 +573,28 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     m3.startNewGame(currentLevel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, currentLevel]);
+const tileSize = useMemo(() => {
+  const bs = m3.boardSize || 8;
 
-  const tileSize = useMemo(() => {
-    const bs = m3.boardSize || 8;
-    return Math.max(40, Math.min(64, Math.floor(Math.min(vw - 32, vh * 0.62) / bs)));
-  }, [vw, vh, m3.boardSize]);
+  const horizontalSpace = vw - 32;
+
+  // ⬇️ kicsit nagyobb hely a felső HUD-nak
+  const topHudReserve = screen === "game" ? 290 : 160;
+
+  const bottomReserve = screen === "game" ? 185 : 100;
+
+  const verticalSpace = Math.max(260, vh - topHudReserve - bottomReserve);
+
+  const usable = Math.min(horizontalSpace, verticalSpace);
+
+  return Math.max(34, Math.min(60, Math.floor(usable / bs)));
+}, [vw, vh, m3.boardSize, screen]);
 
   const desiredBg = useMemo(() => {
     const fallback = GAME_ASSETS.menuBackground;
 
     if (screen === "menu") return GAME_ASSETS.menuBackground;
-    if (screen === "map")
-      return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
+    if (screen === "map") return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
     return pickBgByBlock(GAME_ASSETS.storyBackgrounds, m3.level, 20, fallback);
   }, [screen, currentLevel, m3.level]);
 
@@ -424,7 +616,6 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     };
   }, [desiredBg]);
 
-  // zene
   useEffect(() => {
     let track: string | null;
     if (screen === "menu" || screen === "map") track = MUSIC_MENU;
@@ -435,7 +626,6 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     } catch {}
   }, [screen, m3.level]);
 
-  // story popup
   useEffect(() => {
     if (screen !== "game") return;
     if ((m3.level - 1) % 20 === 0) {
@@ -449,8 +639,6 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     return calcStars(m3.score, m3.targetScore);
   }, [screen, m3.score, m3.targetScore]);
 
-  // ✅ CHEST reward figyelés (useMatch3 módosítás nélkül)
-  // Megpróbáljuk megtalálni a chest számlálót több néven is.
   const chestCount = useMemo(() => {
     const v = (m3 as any)?.progress?.chests ?? (m3 as any)?.foundChests ?? 0;
     return typeof v === "number" && Number.isFinite(v) ? v : 0;
@@ -467,9 +655,8 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     if (chestCount > prev) {
       const delta = chestCount - prev;
 
-      // ✅ stable chest rewards: seeded + ledger protected
       for (let i = 0; i < delta; i++) {
-        const chestIndex = prev + i + 1; // 1..N
+        const chestIndex = prev + i + 1;
         try {
           grantChestReward(userKey, m3.level, chestIndex);
         } catch {}
@@ -483,11 +670,10 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     prevChestRef.current = chestCount;
   }, [screen, chestCount, refreshRubyntBalance, m3.level]);
 
-  // pass report (1★) - egyszer
   const reportedPassRef = useRef<number>(0);
   useEffect(() => {
     if (screen !== "game") return;
-    if (starsNow < 1) return;
+    if (!m3.passed) return;
     if (reportedPassRef.current === m3.level) return;
 
     reportedPassRef.current = m3.level;
@@ -500,14 +686,11 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     const base = Math.max(1, Math.min(3, starsNow));
     rewardLevelOnce(userKey, m3.level, base, "level_clear");
 
-    // ✅ shard bonus now follows shard index: 10, 15, 20, ...
     if (isShardLevel(m3.level)) {
       const idx = shardIndexForLevel(m3.level);
       const shardBonus = idx >= 0 ? shardValueByIndex(idx) : 10;
 
       rewardLevelOnce(userKey, m3.level + 1000000, shardBonus, "shard_bonus");
-
-      // track in UI progress
       addShardFound(m3.level);
     }
 
@@ -523,28 +706,28 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
       completeLevel?.(m3.level, m3.score, starsNow);
       if (isShardLevel(m3.level)) markShardFound(m3.level);
     } catch {}
-  }, [screen, starsNow, m3.level, m3.score, completeLevel, refreshRubyntBalance, addShardFound]);
+  }, [screen, m3.passed, starsNow, m3.level, m3.score, completeLevel, refreshRubyntBalance, addShardFound]);
 
-  // end modal - egyszer
   const endShownForRef = useRef<string>("");
   useEffect(() => {
     if (screen !== "game") return;
 
+    const dragonWon = levelRules.challenge?.type === "dragon" && m3.passed;
     const timedOut = m3.mode === "timed" && m3.timeLeftSec <= 0;
     const noMoves = m3.mode === "moves" && m3.moves <= 0;
-    if (!timedOut && !noMoves) return;
 
-    const key = `${m3.level}:${timedOut ? "t" : "m"}`;
+    if (!dragonWon && !timedOut && !noMoves) return;
+
+    const key = `${m3.level}:${dragonWon ? "w" : timedOut ? "t" : "m"}`;
     if (endShownForRef.current === key) return;
     endShownForRef.current = key;
 
-    const passed = starsNow >= 1;
+    const passed = dragonWon ? true : m3.passed;
     setEndWon(passed);
     setEndStars(starsNow);
     setEndOpen(true);
-  }, [screen, m3.level, m3.mode, m3.timeLeftSec, m3.moves, starsNow]);
+  }, [screen, levelRules.challenge, m3.level, m3.mode, m3.timeLeftSec, m3.moves, m3.passed, starsNow]);
 
-  // end sound + confetti (egyszer)
   const lastEndSoundRef = useRef<string>("");
   useEffect(() => {
     if (!endOpen) {
@@ -578,6 +761,8 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
     if (screen !== "game") endShownForRef.current = "";
   }, [screen, endOpen]);
 
+  const endActionLockRef = useRef(false);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-gothic animate-pulse">
@@ -588,12 +773,16 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
 
   const story = getStoryForLevel(m3.level);
 
-  // retry / next lock
-  const endActionLockRef = useRef(false);
+  const inventory = progress?.inventory ?? {
+    bombs: 0,
+    wizards: 0,
+    stripedBombs: 0,
+    rainbowBombs: 0,
+    extraMoves: 0,
+  };
 
   return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
-      {/* háttér */}
       <div
         className="fixed inset-0 z-0 transition-opacity duration-700 pointer-events-none"
         style={{
@@ -607,8 +796,7 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
       />
       <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/40 via-red-950/20 to-black/70 md:from-black/20 md:via-red-950/10 md:to-black/40 pointer-events-none" />
 
-      {/* content */}
-      <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center pt-16 md:pt-24">
+      <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center pt-32 md:pt-36">
         {screen === "game" && story && (
           <StorySidePanels
             leftText={story.left}
@@ -643,11 +831,7 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
         )}
 
         {screen === "map" && (
-          <div
-            className="relative w-full"
-            style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}
-          >
-            <RubyProgressPanel />
+          <div className="relative w-full" style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}>
             {story && <StorySidePanels leftText={story.left} rightText={story.right} showKnights={true} />}
 
             <div className="w-full h-full">
@@ -703,13 +887,96 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
               ))}
             </div>
 
+            <div className="mt-3 w-full max-w-[min(92vw,560px)] px-2">
+              <div className="rounded-2xl bg-black/45 border border-white/10 backdrop-blur-sm px-3 py-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleArmBooster("bomb")}
+                      disabled={(inventory.bombs ?? 0) <= 0}
+                      className={`px-3 py-1 rounded-xl border text-xs transition ${
+                        m3.armedBooster === "bomb"
+                          ? "bg-red-800/70 border-red-400/40 text-white"
+                          : "bg-white/5 border-white/10 text-white"
+                      } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      💣 <span className="text-white/65">Bomb</span>{" "}
+                      <span className="font-semibold tabular-nums">{inventory.bombs ?? 0}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleArmBooster("striped")}
+                      disabled={(inventory.stripedBombs ?? 0) <= 0}
+                      className={`px-3 py-1 rounded-xl border text-xs transition ${
+                        m3.armedBooster === "striped"
+                          ? "bg-red-800/70 border-red-400/40 text-white"
+                          : "bg-white/5 border-white/10 text-white"
+                      } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      ⚡ <span className="text-white/65">Striped</span>{" "}
+                      <span className="font-semibold tabular-nums">
+                        {inventory.stripedBombs ?? 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleArmBooster("rainbow")}
+                      disabled={(inventory.rainbowBombs ?? 0) <= 0}
+                      className={`px-3 py-1 rounded-xl border text-xs transition ${
+                        m3.armedBooster === "rainbow"
+                          ? "bg-red-800/70 border-red-400/40 text-white"
+                          : "bg-white/5 border-white/10 text-white"
+                      } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      🌈 <span className="text-white/65">Rainbow</span>{" "}
+                      <span className="font-semibold tabular-nums">
+                        {inventory.rainbowBombs ?? 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleUseExtraMoves}
+                      disabled={(inventory.extraMoves ?? 0) <= 0}
+                      className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      +5 <span className="text-white/65">Moves</span>{" "}
+                      <span className="font-semibold tabular-nums">
+                        {inventory.extraMoves ?? 0}
+                      </span>
+                    </button>
+                  </div>
+
+                  {infLifeLeftMs > 0 && (
+                    <div className="px-3 py-1 rounded-xl bg-red-900/35 border border-red-400/20 text-xs">
+                      ❤️ <span className="text-red-100/85">Infinite Life</span>{" "}
+                      <span className="font-semibold tabular-nums">
+                        {formatDurationShort(infLifeLeftMs)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 text-[10px] text-white/40 min-h-[14px]">
+                  {boosterHint
+                    ? boosterHint
+                    : m3.armedBooster
+                      ? "Tap a gem on the board to use the selected booster."
+                      : "Boosters are ready. Bomb / Striped / Rainbow select a target, +5 moves applies instantly."}
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => {
                 playSound("click");
                 setScreen("map");
               }}
-              className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mt-6 mb-8"
+              className="px-6 py-2 bg-red-900/50 hover:bg-red-800 rounded-full text-sm font-gothic mt-4 mb-8"
             >
               {lang === "hu" ? "Vissza a térképre" : "Back to map"}
             </button>
@@ -717,8 +984,8 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
         )}
       </div>
 
-      {/* TOPBAR */}
       <TopBar
+        key={`topbar-${screen}-${screen === "game" ? m3.level : currentLevel}`}
         variant={screen === "game" ? "game" : screen === "map" ? "map" : "menu"}
         onBack={
           screen === "game"
@@ -736,29 +1003,33 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
           playSound("click");
           onLogout();
         }}
-       onOpenShop={() => {
-  playSound("click");
-  try {
-    refreshRubyntBalance();
-  } catch {}
-  setShowShop(true);
-}}
+        onOpenDaily={() => {
+          playSound("click");
+          openDaily();
+        }}
+        onOpenShop={() => {
+          playSound("click");
+          try {
+            refreshRubyntBalance();
+          } catch {}
+          setShowShop(true);
+        }}
         shardCount={shardCount}
         onOpenShards={() => {
-  playSound("click");
-  try {
-    refreshRubyntBalance();
-  } catch {}
-  setShowShards(true);
-}}
+          playSound("click");
+          try {
+            refreshRubyntBalance();
+          } catch {}
+          setShowShards(true);
+        }}
         rubyntBalance={progress?.rubyntBalance ?? 0}
-      onOpenWallet={() => {
-  playSound("click");
-  try {
-    refreshRubyntBalance();
-  } catch {}
-  setShowWallet(true);
-}}
+        onOpenWallet={() => {
+          playSound("click");
+          try {
+            refreshRubyntBalance();
+          } catch {}
+          setShowWallet(true);
+        }}
         score={screen === "game" ? m3.score : 0}
         targetScore={screen === "game" ? m3.targetScore : 0}
         moves={screen === "game" ? m3.moves : 0}
@@ -778,16 +1049,41 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
         timeLeftSec={screen === "game" ? m3.timeLeftSec : 0}
         timeLimitSec={screen === "game" ? m3.timeLimitSec : 0}
         activeGemCount={screen === "game" ? m3.activeGemCount : 0}
+        objectiveTitle={screen === "game" ? objectiveData.title : ""}
+        objectiveText={screen === "game" ? objectiveData.text : ""}
+        objectiveIcon={screen === "game" ? objectiveData.icon : ""}
+        dragonHp={screen === "game" ? m3.dragonHp ?? 0 : 0}
+        dragonMaxHp={
+          screen === "game" && levelRules.challenge?.type === "dragon"
+            ? levelRules.challenge.hp
+            : 0
+        }
+        dragonJustHit={screen === "game" ? Boolean((m3 as any).dragonJustHit) : false}
+        dragonDefeated={
+          screen === "game" &&
+          levelRules.challenge?.type === "dragon" &&
+          (m3.dragonHp ?? 0) <= 0
+        }
       />
+
+      {allowed && (
+        <div className="fixed bottom-2 right-2 z-[999999] bg-red-600 text-white px-2 py-1 rounded text-xs pointer-events-none">
+          DEVTOOLS
+        </div>
+      )}
 
       {endOpen && (
         <div className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-2xl bg-[#140404] border border-red-900/40 p-5 text-center br-win-modal">
             <h2 className="text-2xl font-gothic mb-2">
               {endWon
-                ? lang === "hu"
-                  ? "Gratulálunk!"
-                  : "Congratulations!"
+                ? levelRules.challenge?.type === "dragon"
+                  ? lang === "hu"
+                    ? "A sárkány legyőzve!"
+                    : "Dragon Defeated!"
+                  : lang === "hu"
+                    ? "Gratulálunk!"
+                    : "Congratulations!"
                 : m3.mode === "timed"
                   ? lang === "hu"
                     ? "Lejárt az idő!"
@@ -797,14 +1093,26 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
                     : "Out of moves!"}
             </h2>
 
-            {endWon && (
+                        {endWon && (
               <>
                 <div className="text-xl mb-3">
                   {"★".repeat(endStars)}
                   {"☆".repeat(3 - endStars)}
                 </div>
+
                 <div className="mt-2 text-sm text-white/80">
-                  Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
+                  {levelRules.challenge?.type === "dragon" ? (
+                    <>
+                      Boss reward:{" "}
+                      <span className="text-red-200 font-bold">
+                        Dragon cleared
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Reward: <span className="text-red-200 font-bold">+{endStars}</span> Vault Stars
+                    </>
+                  )}
                 </div>
               </>
             )}
@@ -887,13 +1195,58 @@ if (lvl >= 481 && lvl <= 500) return MUSIC_BOSS_22;
 
       {showWallet && <WalletModal onClose={() => setShowWallet(false)} />}
       {showShop && <ShopModal onClose={() => setShowShop(false)} />}
+      {showShards && <ShardModal onClose={() => setShowShards(false)} />}
 
-      {/* ✅ Shards modal */}
-      {showShards && (
-        <ShardsModal
-          onClose={() => setShowShards(false)}
-          foundLevels={shardsFoundLevels}
+      {showDaily && (
+        <DailyChestModal
+          userKey={getUserKeyFromStorage() || ""}
+          onClose={() => setShowDaily(false)}
+          onClaim={(reward) => {
+            try {
+              if (reward.type === "br") {
+                addRubynts(reward.amount);
+                try {
+                  refreshRubyntBalance();
+                } catch {}
+              } else if (reward.type === "bomb") {
+                addInventoryItem("bombs", reward.amount);
+              } else if (reward.type === "moves") {
+                addInventoryItem("extraMoves", reward.amount);
+              }
+            } catch (e) {
+              console.warn("Daily reward apply failed", e);
+            }
+            setShowDaily(false);
+          }}
         />
+      )}
+
+      {allowed && devOpen && (
+        <div className="fixed bottom-14 right-2 z-[999999] pointer-events-auto">
+          <div className="bg-black/80 border border-red-500/40 rounded-xl p-2 pointer-events-auto">
+            <DevPanel
+              currentLevel={currentLevel}
+              unlockedLevel={unlockedLevel}
+              setCurrentLevel={(n) => setCurrentLevel(n)}
+              setUnlockedLevel={(n) => setUnlockedLevel(n)}
+              onStartLevel={(n) => {
+                try {
+                  const lvl = clampLevel(n);
+
+                  setCurrentLevel(lvl);
+                  setUnlockedLevel((u: number) => Math.max(clampLevel(u), lvl));
+
+                  reportedPassRef.current = 0;
+                  endShownForRef.current = "";
+                  endActionLockRef.current = false;
+
+                  lastStartedRef.current = 0;
+                  setScreen("game");
+                } catch {}
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

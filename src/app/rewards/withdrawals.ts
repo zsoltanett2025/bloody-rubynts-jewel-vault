@@ -23,6 +23,7 @@ export type WithdrawRequest = {
   status: WithdrawStatus;
   paidAt?: number;
   txHash?: string;
+  email?: string;
 };
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -60,6 +61,7 @@ function sendWithdrawEmail(req: WithdrawRequest) {
         EMAILJS_TEMPLATE_ID,
         {
           user: req.userKey,
+          email: req.email || "",
           wallet: req.walletAddress,
           amount: req.amount,
           note: req.note || "",
@@ -89,11 +91,13 @@ export function createWithdrawRequest(params: {
   walletAddress: string;
   amount: number;
   note?: string;
+  email?: string;
 }): { ok: true; request: WithdrawRequest } | { ok: false; error: string } {
   const userKey = (params.userKey || "").trim();
   const walletAddress = (params.walletAddress || "").trim();
   const amount = Math.floor(Number(params.amount) || 0);
   const note = (params.note || "").trim();
+  const email = (params.email || "").trim();
 
   if (!userKey || userKey === "guest") return { ok: false, error: "Please login first." };
   if (!walletAddress) return { ok: false, error: "Wallet address is required." };
@@ -110,6 +114,7 @@ export function createWithdrawRequest(params: {
     note: note || "Payout within 24–48 hours.",
     createdAt: Date.now(),
     status: "pending",
+    email: email || undefined,
   };
 
   // ✅ Balance decreases immediately (pre-release manual payout flow)
@@ -148,7 +153,7 @@ export function markWithdrawPaid(id: string, txHash?: string): boolean {
   return true;
 }
 
-export function cancelWithdrawRequest(id: string, refund = true): boolean {
+export function cancelWithdrawRequest(id: string, _email?: string, refund = true): boolean {
   const all = loadAll();
   const idx = all.findIndex((r) => r.id === id);
   if (idx < 0) return false;
@@ -174,6 +179,7 @@ export function formatWithdrawMessage(req: WithdrawRequest): string {
   return [
     `Withdraw Request: ${req.id}`,
     `User: ${req.userKey}`,
+    `Email: ${req.email || "-"}`,
     `Amount: ${req.amount} BR`,
     `Wallet: ${req.walletAddress}`,
     `Status: ${req.status}`,

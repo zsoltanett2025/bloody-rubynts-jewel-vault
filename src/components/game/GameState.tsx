@@ -1,4 +1,3 @@
-// src/components/game/GameState.tsx
 import React, {
   createContext,
   useContext,
@@ -8,10 +7,24 @@ import React, {
   useEffect,
 } from "react";
 import { getUserKeyFromStorage, getBrBalance, addBr } from "../../app/rewards/brRewards";
+import { DailyChestModal, type DailyReward } from "../daily/DailyChestModal";
+
+type InventoryKey =
+  | "bombs"
+  | "wizards"
+  | "stripedBombs"
+  | "rainbowBombs"
+  | "extraMoves";
 
 type Progress = {
   rubyntBalance: number;
-  inventory: { bombs: number; wizards: number };
+  inventory: {
+    bombs: number;
+    wizards: number;
+    stripedBombs: number;
+    rainbowBombs: number;
+    extraMoves: number;
+  };
 };
 
 type GameCtx = {
@@ -25,7 +38,8 @@ type GameCtx = {
 
   addLives: (n: number) => void;
   setLivesToMax: () => void;
-  addInventoryItem: (key: "bombs" | "wizards", n: number) => void;
+  addInventoryItem: (key: InventoryKey, n: number) => void;
+  consumeInventoryItem: (key: InventoryKey, n?: number) => boolean;
 
   refreshRubyntBalance: () => void;
   addRubynts: (amount: number) => void;
@@ -38,6 +52,10 @@ type GameCtx = {
   isWalletOpen: boolean;
   openWallet: () => void;
   closeWallet: () => void;
+
+  isDailyOpen: boolean;
+  openDaily: () => void;
+  closeDaily: () => void;
 
   completeLevel: (level: number, score: number, stars: number) => void;
 };
@@ -76,10 +94,9 @@ function storageKeysForUser(userKey: string) {
   };
 }
 
-// ✅ Lives regen (per-user) keys
 const LS_LIVES_PREFIX = "br_lives_v1:";
 const LS_LIVES_TS_PREFIX = "br_lives_ts_v1:";
-const LIFE_REGEN_MS = 30 * 60 * 1000; // ✅ 30 minutes
+const LIFE_REGEN_MS = 30 * 60 * 1000;
 
 function livesKey(userKey: string) {
   return `${LS_LIVES_PREFIX}${userKey}`;
@@ -92,23 +109,50 @@ function clampLives(n: number, maxLives: number) {
   return Math.max(0, Math.min(maxLives, Math.floor(n)));
 }
 
+const LS_INF_LIFE_UNTIL = "br_infinite_life_until_v1";
+function getInfiniteLifeUntil(): number {
+  try {
+    const raw = localStorage.getItem(LS_INF_LIFE_UNTIL);
+    const n = Number(raw || 0);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+function hasInfiniteLifeActive(): boolean {
+  return getInfiniteLifeUntil() > Date.now();
+}
+
+const LS_DAILY_LAST_PREFIX = "br_daily_last_claim_v2:";
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+function todayKeyLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function hasClaimedDaily(userKey: string): boolean {
+  try {
+    const last = localStorage.getItem(`${LS_DAILY_LAST_PREFIX}${userKey || "guest"}`);
+    return last === todayKeyLocal();
+  } catch {
+    return false;
+  }
+}
+
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const maxLives = 3;
 
-  // ✅ active userKey (per account)
   const [userKey, setUserKey] = useState(() => getUserKeyFromStorage());
 
-  // ✅ lives init: if missing for this user => seed to full immediately
   const [lives, setLives] = useState(() => {
     try {
       const u = getUserKeyFromStorage();
 
-      // guest always full (no persistence)
       if (!u || u === "guest") return maxLives;
 
       const raw = localStorage.getItem(livesKey(u));
 
-      // ✅ NEW USER: missing key => start full + seed
       if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(Date.now()));
@@ -120,7 +164,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const loaded = clampLives(n, maxLives);
 
-      // ensure TS exists
       const tsRaw = localStorage.getItem(livesTsKey(u));
       const ts = Number(tsRaw);
       if (!Number.isFinite(ts) || ts <= 0) {
@@ -135,19 +178,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const [progress, setProgress] = useState<Progress>({
     rubyntBalance: 0,
-    inventory: { bombs: 3, wizards: 3 },
+    inventory: {
+      bombs: 3,
+      wizards: 3,
+      stripedBombs: 0,
+      rainbowBombs: 0,
+      extraMoves: 0,
+    },
   });
 
-  // ✅ wallet state
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
 
-  // ✅ wallet modal UI
   const [isWalletOpen, setWalletOpen] = useState(false);
   const openWallet = useCallback(() => setWalletOpen(true), []);
   const closeWallet = useCallback(() => setWalletOpen(false), []);
 
-  // ✅ keep userKey in sync with storage (login/register/logout)
+  const [isDailyOpen, setDailyOpen] = useState(false);
+  const openDaily = useCallback(() => setDailyOpen(true), []);
+  const closeDaily = useCallback(() => setDailyOpen(false), []);
+
   useEffect(() => {
     const id = window.setInterval(() => {
       const next = getUserKeyFromStorage();
@@ -156,12 +206,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, []);
 
-  // ✅ whenever userKey changes: load OR seed lives
   useEffect(() => {
     const u = userKey;
 
     if (!u || u === "guest") {
-      // guest: always full, and optionally cleanup guest keys
       try {
         localStorage.removeItem(livesKey("guest"));
         localStorage.removeItem(livesTsKey("guest"));
@@ -173,7 +221,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     try {
       const raw = localStorage.getItem(livesKey(u));
 
-      // ✅ NEW USER
       if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(Date.now()));
@@ -185,7 +232,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const loaded = Number.isFinite(n) ? clampLives(n, maxLives) : maxLives;
       setLives(loaded);
 
-      // ensure TS exists
       const tsRaw = localStorage.getItem(livesTsKey(u));
       const ts = Number(tsRaw);
       if (!Number.isFinite(ts) || ts <= 0) {
@@ -196,18 +242,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userKey]);
 
-  // ✅ regen tick (source of truth: localStorage)
   const tickLives = useCallback(() => {
     const u = userKey;
     if (!u || u === "guest") return;
 
+    if (hasInfiniteLifeActive()) {
+      if (lives !== maxLives) setLives(maxLives);
+      try {
+        localStorage.setItem(livesKey(u), String(maxLives));
+        localStorage.setItem(livesTsKey(u), String(Date.now()));
+      } catch {}
+      return;
+    }
+
     try {
       const now = Date.now();
 
-      // read stored lives
       const raw = localStorage.getItem(livesKey(u));
 
-      // ✅ missing key => seed full (safety)
       if (raw === null) {
         localStorage.setItem(livesKey(u), String(maxLives));
         localStorage.setItem(livesTsKey(u), String(now));
@@ -219,7 +271,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (!Number.isFinite(current)) current = maxLives;
       current = clampLives(current, maxLives);
 
-      // read timestamp
       const tsRaw = localStorage.getItem(livesTsKey(u));
       let lastTs = Number(tsRaw);
       if (!Number.isFinite(lastTs) || lastTs <= 0) {
@@ -228,7 +279,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (current >= maxLives) {
-        // keep TS fresh
         localStorage.setItem(livesTsKey(u), String(now));
         if (lives !== maxLives) setLives(maxLives);
         return;
@@ -265,6 +315,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const spendLife = useCallback(() => {
     const u = userKey;
 
+    if (hasInfiniteLifeActive()) {
+      try {
+        if (u && u !== "guest") {
+          localStorage.setItem(livesKey(u), String(maxLives));
+          localStorage.setItem(livesTsKey(u), String(Date.now()));
+        }
+      } catch {}
+      setLives(maxLives);
+      return;
+    }
+
     setLives((v) => {
       const next = Math.max(0, v - 1);
 
@@ -272,7 +333,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (u && u !== "guest") {
           localStorage.setItem(livesKey(u), String(next));
 
-          // IMPORTANT: when spending life, restart timer NOW (regen starts immediately)
           if (next < maxLives) {
             localStorage.setItem(livesTsKey(u), String(Date.now()));
           }
@@ -326,16 +386,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [userKey]);
 
-  const addInventoryItem = useCallback((key: "bombs" | "wizards", n: number) => {
+  const addInventoryItem = useCallback((key: InventoryKey, n: number) => {
     const a = Math.max(0, Math.floor(Number(n) || 0));
     if (a <= 0) return;
+
     setProgress((p) => ({
       ...p,
       inventory: {
         ...p.inventory,
-        [key]: (p.inventory[key] ?? 0) + a,
+        [key]: ((p.inventory as any)[key] ?? 0) + a,
       },
     }));
+  }, []);
+
+  const consumeInventoryItem = useCallback((key: InventoryKey, n: number = 1) => {
+    const need = Math.max(1, Math.floor(Number(n) || 1));
+    let ok = false;
+
+    setProgress((p) => {
+      const current = Math.max(0, Math.floor(Number((p.inventory as any)[key] ?? 0)));
+      if (current < need) {
+        ok = false;
+        return p;
+      }
+
+      ok = true;
+      return {
+        ...p,
+        inventory: {
+          ...p.inventory,
+          [key]: current - need,
+        },
+      };
+    });
+
+    return ok;
   }, []);
 
   const refreshRubyntBalance = useCallback(() => {
@@ -491,6 +576,55 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const handleDailyClaim = useCallback(
+    (r: DailyReward) => {
+      if (!r) return;
+
+      if (r.type === "br") {
+        addRubynts(r.amount);
+        return;
+      }
+
+      if (r.type === "bomb") {
+        addInventoryItem("bombs", r.amount);
+        return;
+      }
+
+      if (r.type === "moves") {
+        addInventoryItem("extraMoves", r.amount);
+        return;
+      }
+
+      if (r.type === "striped") {
+        addInventoryItem("stripedBombs", r.amount);
+        return;
+      }
+
+      if (r.type === "rainbow") {
+        addInventoryItem("rainbowBombs", r.amount);
+        return;
+      }
+
+      if (r.type === "br_chest") {
+        addRubynts(r.amount);
+        return;
+      }
+
+      if (r.type === "infinite_life") {
+        try {
+          const now = Date.now();
+          const currentUntil = getInfiniteLifeUntil();
+          const base = currentUntil > now ? currentUntil : now;
+          const nextUntil = base + r.minutes * 60 * 1000;
+          localStorage.setItem(LS_INF_LIFE_UNTIL, String(nextUntil));
+        } catch {}
+
+        setLivesToMax();
+      }
+    },
+    [addRubynts, addInventoryItem, setLivesToMax]
+  );
+
   const value = useMemo<GameCtx>(
     () => ({
       progress,
@@ -504,6 +638,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addLives,
       setLivesToMax,
       addInventoryItem,
+      consumeInventoryItem,
 
       refreshRubyntBalance,
       addRubynts,
@@ -516,6 +651,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       isWalletOpen,
       openWallet,
       closeWallet,
+
+      isDailyOpen,
+      openDaily,
+      closeDaily,
 
       completeLevel: () => {},
     }),
@@ -528,6 +667,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addLives,
       setLivesToMax,
       addInventoryItem,
+      consumeInventoryItem,
       refreshRubyntBalance,
       addRubynts,
       walletAddress,
@@ -537,10 +677,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       isWalletOpen,
       openWallet,
       closeWallet,
+      isDailyOpen,
+      openDaily,
+      closeDaily,
     ]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={value}>
+      {children}
+
+      {isDailyOpen && (
+        <DailyChestModal
+          userKey={userKey}
+          onClose={closeDaily}
+          onClaim={(r) => {
+            handleDailyClaim(r);
+            closeDaily();
+          }}
+        />
+      )}
+    </Ctx.Provider>
+  );
 }
 
 export function useGame() {

@@ -9,6 +9,7 @@ function hashToIndex(id: string, mod: number) {
 }
 
 const SIMPLE_SKINS_UNTIL_LEVEL = 10;
+const DRAGON_LEVELS = [67, 134, 201, 268, 335, 402, 469];
 
 export function GemComponent({
   gem,
@@ -21,9 +22,9 @@ export function GemComponent({
   gem: Gem;
   size: number;
   isSelected: boolean;
-  isFlashing?: boolean; // ✅ FX: match flash
+  isFlashing?: boolean;
   onClick: () => void;
-  level?: number; // ✅ új
+  level?: number;
 }) {
   const x = Math.round(gem.x * size);
   const y = Math.round(gem.y * size);
@@ -47,8 +48,8 @@ export function GemComponent({
 
   const pool = pools[gem.type] ?? [GAME_ASSETS.gems.ruby_round];
 
-  // ✅ 1–10: egyszerű kinézet (típusonként 1 fix kép)
   const simpleSkins = typeof level === "number" && level <= SIMPLE_SKINS_UNTIL_LEVEL;
+  const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
 
   const baseGemUrl = useMemo(() => {
     if (simpleSkins) return pool[0] ?? GAME_ASSETS.gems.ruby_round;
@@ -68,14 +69,23 @@ export function GemComponent({
 
   const isPower = !!powerIcon && gem.type !== "chest";
 
-  // ✅ Stabil transform: nincs külső DOM animáció
-  const transform = `translate3d(${x}px, ${y}px, 0) scale(${isSelected ? 1.05 : 1})`;
+  const transform = `translate3d(${x}px, ${y}px, 0) scale(${isSelected ? 1.04 : 1})`;
+
+  const dragonGlow =
+    isDragonLevel && gem.type !== "chest"
+      ? "drop-shadow-[0_0_8px_rgba(255,70,70,0.22)]"
+      : "";
+
+  const selectionRing = isSelected
+    ? "ring-2 ring-white"
+    : isDragonLevel
+      ? "ring-1 ring-red-300/15"
+      : "ring-1 ring-white/10";
 
   return (
     <button
       type="button"
       onPointerDown={(e) => {
-        // ✅ minimál beavatkozás, ne “zúzzuk szét” az event chain-t
         e.stopPropagation();
         onClick();
       }}
@@ -86,14 +96,14 @@ export function GemComponent({
         touchAction: "manipulation",
         willChange: "transform",
         transform,
-        transition: "transform 220ms ease-out",
+        transition: "transform 180ms ease-out",
       }}
     >
       <img
         src={baseGemUrl}
         alt={gem.type}
         draggable={false}
-        className="w-full h-full object-cover pointer-events-none"
+        className={`w-full h-full object-cover pointer-events-none ${dragonGlow}`}
         style={{ opacity: isPower ? 0.35 : 1 }}
       />
 
@@ -102,11 +112,15 @@ export function GemComponent({
           src={powerIcon!}
           alt={gem.power}
           draggable={false}
-          className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_14px_rgba(255,120,120,0.55)]"
+          className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,120,120,0.45)]"
         />
       )}
 
-      <div className={`absolute inset-0 rounded-xl ${isSelected ? "ring-2 ring-white" : "ring-1 ring-white/10"}`} />
+      {isDragonLevel && !isPower && gem.type !== "chest" && (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-500/6 via-transparent to-black/8" />
+      )}
+
+      <div className={`absolute inset-0 rounded-xl ${selectionRing}`} />
     </button>
   );
 }

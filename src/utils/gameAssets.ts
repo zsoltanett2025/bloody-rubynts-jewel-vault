@@ -1,4 +1,3 @@
-// src/utils/gameAssets.ts
 const BASE = import.meta.env.BASE_URL;
 const u = (p: string) => `${BASE}${p.replace(/^\/+/, "")}`;
 
@@ -39,10 +38,8 @@ export const GAME_ASSETS = {
     shuffle: u("assets/ui/shuffle.png"),
   },
 
-  // Menü háttér
   menuBackground: u("assets/backgrounds/menu.jpg"),
 
-  // ✅ MAP / pályaválasztó hátterek (levels_sheet_001..011) — 20 pályánként vált
   mapBackgrounds: [
     u("assets/references/levels_sheet_001.png"),
     u("assets/references/levels_sheet_002.png"),
@@ -57,39 +54,38 @@ export const GAME_ASSETS = {
     u("assets/references/levels_sheet_011.png"),
   ] as const,
 
-  // ✅ JÁTÉK / STORY hátterek (bg_001..bg_010) – 20 pályánként vált
-storyBackgrounds: [
-  u("assets/backgrounds/bg_001.png"),
-  u("assets/backgrounds/bg_002.png"),
-  u("assets/backgrounds/bg_003.png"),
-  u("assets/backgrounds/bg_004.png"),
-  u("assets/backgrounds/bg_005.png"),
-  u("assets/backgrounds/bg_006.png"),
-  u("assets/backgrounds/bg_007.png"),
-  u("assets/backgrounds/bg_008.png"),
-  u("assets/backgrounds/bg_009.png"),
-  u("assets/backgrounds/bg_010.png"),
-  u("assets/backgrounds/bg_011.png"),
-  u("assets/backgrounds/bg_012.png"),
-  u("assets/backgrounds/bg_013.png"),
-  u("assets/backgrounds/bg_014.png"),
-  u("assets/backgrounds/bg_015.png"),
-  u("assets/backgrounds/bg_016.png"),
-  u("assets/backgrounds/bg_017.png"),
-  u("assets/backgrounds/bg_018.png"),
-  u("assets/backgrounds/bg_019.png"),
-  u("assets/backgrounds/bg_020.png"),
-  u("assets/backgrounds/bg_021.png"),
-  u("assets/backgrounds/bg_022.png"),
-  u("assets/backgrounds/bg_023.png"),
-  u("assets/backgrounds/bg_024.png"),
-  u("assets/backgrounds/bg_025.png"),
-  u("assets/backgrounds/bg_026.png"),
-  u("assets/backgrounds/bg_027.png"),
-  u("assets/backgrounds/bg_028.png"),
-  u("assets/backgrounds/bg_029.png"),
-  u("assets/backgrounds/bg_030.png"),
-] as const,
+  storyBackgrounds: [
+    u("assets/backgrounds/bg_001.png"),
+    u("assets/backgrounds/bg_002.png"),
+    u("assets/backgrounds/bg_003.png"),
+    u("assets/backgrounds/bg_004.png"),
+    u("assets/backgrounds/bg_005.png"),
+    u("assets/backgrounds/bg_006.png"),
+    u("assets/backgrounds/bg_007.png"),
+    u("assets/backgrounds/bg_008.png"),
+    u("assets/backgrounds/bg_009.png"),
+    u("assets/backgrounds/bg_010.png"),
+    u("assets/backgrounds/bg_011.png"),
+    u("assets/backgrounds/bg_012.png"),
+    u("assets/backgrounds/bg_013.png"),
+    u("assets/backgrounds/bg_014.png"),
+    u("assets/backgrounds/bg_015.png"),
+    u("assets/backgrounds/bg_016.png"),
+    u("assets/backgrounds/bg_017.png"),
+    u("assets/backgrounds/bg_018.png"),
+    u("assets/backgrounds/bg_019.png"),
+    u("assets/backgrounds/bg_020.png"),
+    u("assets/backgrounds/bg_021.png"),
+    u("assets/backgrounds/bg_022.png"),
+    u("assets/backgrounds/bg_023.png"),
+    u("assets/backgrounds/bg_024.png"),
+    u("assets/backgrounds/bg_025.png"),
+    u("assets/backgrounds/bg_026.png"),
+    u("assets/backgrounds/bg_027.png"),
+    u("assets/backgrounds/bg_028.png"),
+    u("assets/backgrounds/bg_029.png"),
+    u("assets/backgrounds/bg_030.png"),
+  ] as const,
 
   map: {
     knight: u("assets/backgrounds/map/knight/knight.png"),
