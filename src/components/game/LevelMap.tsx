@@ -75,20 +75,22 @@ export function LevelMap(props: {
   const currentNode = nodes.find((n) => n.level === currentLevel);
 
   return (
-    <div
-      ref={scrollRef}
-      className="w-full h-[100svh] overflow-y-auto relative scroll-pt-20"
-      style={{
-        backgroundImage: `
-         linear-gradient(180deg, rgba(0,0,0,0.40), rgba(0,0,0,0.72)),
-         radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.20), transparent 60%),
-         url('${backgrounds[bgIndex]}')
-     `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: isMobile ? "scroll" : "fixed",
-      }}
-    >
+  <div
+    ref={scrollRef}
+    className="w-full h-[100svh] overflow-y-auto relative scroll-pt-20"
+    style={{
+      backgroundImage: `
+        linear-gradient(180deg, rgba(0,0,0,0.40), rgba(0,0,0,0.72)),
+        radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.20), transparent 60%),
+        url('${backgrounds[bgIndex]}')
+      `,
+      backgroundSize: "cover",
+      backgroundPosition: isMobile ? "center top" : "center",
+      backgroundRepeat: "no-repeat",
+      backgroundAttachment: isMobile ? "scroll" : "fixed",
+      backgroundColor: "#050505",
+    }}
+  >
       <div className="w-full">
         <svg
           width="100%"
