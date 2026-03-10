@@ -3,7 +3,7 @@ type WelcomeScreenProps = {
 };
 
 export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
-  const bg = `${import.meta.env.BASE_URL}assets/backgrounds/welcome_realm.gif`; // majd adsz képet
+  const bg = `${import.meta.env.BASE_URL}assets/backgrounds/welcome_realm.gif`;
 
   return (
     <div
@@ -12,6 +12,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
         backgroundImage: `url(${bg})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       <div className="absolute inset-0 bg-black/55" />
