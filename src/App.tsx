@@ -857,15 +857,15 @@ const tileSize = useMemo(() => {
           </div>
         )}
 
-        {screen === "game" && (
-          <>
-            <div
-              className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10"
-              style={{
-                width: m3.boardSize * tileSize,
-                height: m3.boardSize * tileSize,
-              }}
-            >
+       {screen === "game" && (
+         <>
+          <div
+            className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0"
+            style={{
+            width: m3.boardSize * tileSize,
+           height: m3.boardSize * tileSize,
+        }}
+       >
               {m3.gems.map((g) => (
                 <GemComponent
                   key={g.id}
