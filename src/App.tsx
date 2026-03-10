@@ -571,7 +571,7 @@ const tileSize = useMemo(() => {
   const horizontalSpace = vw - 32;
 
   // ⬇️ kicsit nagyobb hely a felső HUD-nak
-  const topHudReserve = screen === "game" ? 290 : 160;
+  const topHudReserve = screen === "game" ? 340 : 160;
 
   const bottomReserve = screen === "game" ? 185 : 100;
 
