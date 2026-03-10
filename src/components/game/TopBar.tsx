@@ -39,7 +39,7 @@ export function TopBar(props: {
   objectiveText?: string;
   objectiveIcon?: string;
 
-    dragonHp?: number;
+  dragonHp?: number;
   dragonMaxHp?: number;
   dragonJustHit?: boolean;
   dragonDefeated?: boolean;
@@ -166,9 +166,12 @@ export function TopBar(props: {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999]">
-      <div className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-black/58 backdrop-blur-md border-b border-white/10 overflow-hidden">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 shrink-0">
+      <div
+        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-black/58 backdrop-blur-md border-b border-white/10 overflow-hidden"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
+      >
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 shrink-0">
             {onBack && (
               <button
                 type="button"
@@ -192,30 +195,30 @@ export function TopBar(props: {
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 text-white/90 whitespace-nowrap min-w-0">
+          <div className="flex flex-1 min-w-0 items-center justify-center gap-1 sm:gap-3 px-1 text-white/90 whitespace-nowrap overflow-hidden">
             {isMap ? (
               <>
-                <div className="font-gothic text-sm sm:text-base font-bold leading-none">
+                <div className="font-gothic text-xs sm:text-base font-bold leading-none truncate">
                   World Map
                 </div>
-                <div className="text-[11px] sm:text-xs text-white/60 leading-none">
+                <div className="text-[10px] sm:text-xs text-white/60 leading-none truncate">
                   Level {level}
                 </div>
               </>
             ) : (
               <>
-                <div className="font-gothic text-sm sm:text-base font-bold leading-none">
-                  L{level}
+                <div className="font-gothic text-xs sm:text-base font-bold leading-none">
+                  L {level}
                 </div>
 
-                <div className="text-xs sm:text-sm font-semibold leading-none">
+                <div className="text-[10px] sm:text-sm font-semibold leading-none truncate">
                   {mode === "timed" ? `${moves} moves` : `${moves} moves`}
                 </div>
 
                 {mode === "timed" && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs tabular-nums">{timeText}</span>
-                    <div className="h-1.5 w-12 sm:w-20 rounded bg-white/15 overflow-hidden">
+                  <div className="hidden xs:flex items-center gap-1.5">
+                    <span className="text-[10px] sm:text-xs tabular-nums">{timeText}</span>
+                    <div className="h-1.5 w-10 sm:w-20 rounded bg-white/15 overflow-hidden">
                       <div
                         className="h-full bg-red-600/80"
                         style={{ width: `${timePct}%` }}
@@ -227,8 +230,8 @@ export function TopBar(props: {
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-0.5 sm:gap-1">
               {Array.from({ length: maxLives }).map((_, i) => {
                 const filled = i < livesClamped;
                 return (
@@ -237,7 +240,7 @@ export function TopBar(props: {
                     src={heartSrc}
                     alt="life"
                     className={[
-                      "w-4 h-4 sm:w-[18px] sm:h-[18px]",
+                      "w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]",
                       filled ? "opacity-100" : "opacity-30",
                     ].join(" ")}
                     draggable={false}
@@ -250,7 +253,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={onShuffle}
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 active:scale-95 transition relative"
+                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 active:scale-95 transition relative shrink-0"
                 title="Shuffle"
               >
                 <img
@@ -269,7 +272,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={props.onOpenDaily}
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 active:scale-95 transition"
+                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 active:scale-95 transition shrink-0"
                 title="Daily Reward"
               >
                 <img
@@ -285,7 +288,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={onOpenWallet}
-                className="h-8 w-9 grid place-items-center rounded-lg bg-white/5 border border-white/10 active:bg-white/10"
+                className="h-8 w-8 sm:w-9 grid place-items-center rounded-lg bg-white/5 border border-white/10 active:bg-white/10 shrink-0"
                 title="Wallet"
               >
                 <Wallet className="w-4 h-4" />
@@ -296,9 +299,11 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={props.onOpenShop}
-                className="px-2.5 py-1 text-[11px] bg-white/10 rounded-lg hover:bg-white/15 transition"
+                className="h-8 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] bg-white/10 rounded-lg hover:bg-white/15 transition shrink-0"
+                title="Shop"
               >
-                Shop
+                <span className="hidden sm:inline">Shop</span>
+                <span className="sm:hidden">S</span>
               </button>
             )}
 
@@ -306,7 +311,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={props.onLogout}
-                className="ml-1 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-black/35 border border-white/10 hover:bg-black/55 active:scale-95 transition"
+                className="ml-0.5 sm:ml-1 flex items-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-lg bg-black/35 border border-white/10 hover:bg-black/55 active:scale-95 transition shrink-0"
                 title="Logout"
                 aria-label="Logout"
               >
@@ -321,17 +326,18 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={() => props.onOpenShards?.()}
-                className="px-2 py-1 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-[10px] sm:text-[11px]"
+                className="px-1.5 sm:px-2 py-1 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-[10px] sm:text-[11px] shrink-0"
                 title="Ruby shards"
               >
-                Shards {props.shardCount}/15
+                <span className="sm:hidden">{props.shardCount}/15</span>
+                <span className="hidden sm:inline">Shards {props.shardCount}/15</span>
               </button>
             )}
 
             {(isGame || isMap) && (
-              <div className="ml-1 flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/35 border border-white/10">
-                <span className="text-[10px] text-white/60">BR</span>
-                <span className="text-xs sm:text-sm font-semibold tabular-nums text-white/90">
+              <div className="ml-0.5 sm:ml-1 flex items-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-lg bg-black/35 border border-white/10 shrink-0">
+                <span className="text-[9px] sm:text-[10px] text-white/60">BR</span>
+                <span className="text-[11px] sm:text-sm font-semibold tabular-nums text-white/90">
                   {rubyntBalance}
                 </span>
               </div>
@@ -389,7 +395,7 @@ export function TopBar(props: {
                   </div>
                 )}
 
-                                {isDragonBoss && dragonMaxHp > 0 && (
+                {isDragonBoss && dragonMaxHp > 0 && (
                   <div className="mt-1.5">
                     <div className="flex items-center justify-between text-[10px] text-red-200/80 mb-1">
                       <span>{dragonDefeated ? "Dragon Defeated" : "Dragon HP"}</span>
