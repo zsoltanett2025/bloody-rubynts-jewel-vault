@@ -58,7 +58,7 @@ export function LevelMap(props: {
     if (!node) return;
 
     const targetY = node.y + translateY;
-    const topOffset = isMobile ? 140 : 60;
+    const topOffset = isMobile ? 220 : 70;
     const top = Math.max(0, targetY - topOffset);
 
     el.scrollTo({ top, behavior: "smooth" });
@@ -73,7 +73,9 @@ export function LevelMap(props: {
     return () => window.clearInterval(id);
   }, []);
 
-  React.useEffect(() => {
+    React.useEffect(() => {
+    if (isMobile) return;
+
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
 
@@ -84,7 +86,7 @@ export function LevelMap(props: {
       document.documentElement.style.overflow = prevHtmlOverflow;
       document.body.style.overflow = prevBodyOverflow;
     };
-  }, []);
+  }, [isMobile]);
 
   const currentNode = nodes.find((n) => n.level === currentLevel);
 
@@ -108,7 +110,7 @@ export function LevelMap(props: {
 
       <div
         ref={scrollRef}
-        className="relative z-10 w-full h-[100svh] overflow-y-hidden scroll-pt-20"
+        className={`relative z-10 w-full h-[100svh] ${isMobile ? "overflow-y-auto" : "overflow-y-hidden"} scroll-pt-20`}
       >
         <div className="w-full">
           <svg
