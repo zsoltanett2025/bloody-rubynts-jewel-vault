@@ -28,25 +28,34 @@ function pick<T>(arr: T[], idx: number) {
   return arr[(idx % arr.length + arr.length) % arr.length];
 }
 
+const MAX_SCORE_TARGET = 5500;
+
+// Új, játékosbarát score balansz:
+// - a moves számít igazán
+// - a level csak nagyon enyhén módosít
+// - timed pálya kaphat kis pluszt
+// - soha nem mehet 5500 fölé
 function scoreTarget(level: number, moves: number, timedSec?: number) {
   const L = Math.max(1, Math.floor(level || 1));
   const m = clamp(Math.floor(moves || 20), 10, 40);
 
-  let base =
-    L <= 120
-      ? 650 + L * 55
-      : L <= 200
-        ? 900 + (L - 120) * 75
-        : 1500 + (L - 200) * 92;
+  // alap cél főleg a lépésszám alapján
+  let base = m * 180;
 
+  // enyhe finomhangolás korszakonként, de semmi brutális emelés
+  if (L <= 40) base *= 0.9;
+  else if (L <= 120) base *= 1.0;
+  else if (L <= 200) base *= 1.05;
+  else if (L <= 350) base *= 1.1;
+  else base *= 1.12;
+
+  // timed pálya kapjon kis pluszt, de ne szálljon el
   if (timedSec && timedSec > 0) {
     const t = clamp(timedSec, 150, 210);
-    base = base * 0.95 + (t - 150) * 18;
+    base += (t - 150) * 8;
   }
 
-  base = base * (0.9 + m / 80);
-
-  return Math.max(600, Math.floor(base));
+  return clamp(Math.floor(base), 900, MAX_SCORE_TARGET);
 }
 
 function clearCount(level: number) {

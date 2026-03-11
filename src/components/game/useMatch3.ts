@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { playSound, type SfxName } from "../../utils/audioManager";
 import { getShardConfig } from "../../utils/shards";
 import { getLevelConfig } from "./levelConfig";
-import { getLevelRules, isGoalMet } from "./levels";
+import { getLevelRules, isGoalMet, type LevelGoal } from "./levels";
 
-console.log("useMatch3 loaded v-STABLE-RESET-DRAGON");
+console.log("useMatch3 loaded v-STABLE-RESET-DRAGON-LUCK-FINAL");
 
 export type GemType = "chest" | (string & {});
 export type PowerType = "stripe_h" | "stripe_v" | "bomb" | "rainbow";
@@ -44,6 +44,14 @@ export type ScorePop = {
   x: number;
   y: number;
   value: number;
+};
+
+type RefillAssist = {
+  favoredTypes?: GemType[];
+  helpMode?: boolean;
+  luckyCascade?: boolean;
+  movesLeft?: number;
+  level?: number;
 };
 
 let __gid = 0;
@@ -86,18 +94,121 @@ function getActiveGemTypesForLevel(level: number, count: number): GemType[] {
   return shuffled.slice(0, clamp(count, 1, shuffled.length));
 }
 
+function pickWeightedGemType(pool: GemType[], favoredTypes?: GemType[], luckyCascade = false) {
+  const validPool = pool.length > 0 ? pool : GEM_TYPES_ALL;
+  const favored = (favoredTypes ?? []).filter(
+    (t) => t !== "chest" && validPool.includes(t)
+  );
+
+  const favoredChance = luckyCascade ? 0.55 : 0.30;
+
+  if (favored.length > 0 && Math.random() < favoredChance) {
+    return favored[Math.floor(Math.random() * favored.length)];
+  }
+
+  return validPool[Math.floor(Math.random() * validPool.length)];
+}
+
+function getFavoredGemTypes(
+  gems: Gem[],
+  activeTypes: GemType[],
+  goal: LevelGoal,
+  targetScore: number,
+  progress: GoalProgress
+): GemType[] {
+  if (goal.type === "clear") {
+    return activeTypes.includes(goal.gem) ? [goal.gem] : [];
+  }
+
+  if (goal.type !== "score") return [];
+
+  const counts = new Map<GemType, number>();
+  for (const g of gems) {
+    if (g.type === "chest") continue;
+    if (!activeTypes.includes(g.type)) continue;
+    counts.set(g.type, (counts.get(g.type) ?? 0) + 1);
+  }
+
+  const sorted = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, progress.score < targetScore * 0.6 ? 3 : 2)
+    .map(([type]) => type);
+
+  return sorted;
+}
+
+function shouldHelpPlayer(
+  goal: LevelGoal,
+  progress: GoalProgress,
+  targetScore: number,
+  movesLeft: number
+) {
+  if (movesLeft > 3) return false;
+
+  if (goal.type === "score") {
+    return progress.score < targetScore * 0.82;
+  }
+
+  if (goal.type === "clear") {
+    const have = progress.cleared?.[goal.gem] ?? 0;
+    const remaining = Math.max(0, goal.count - have);
+    return remaining > 0 && remaining <= 8;
+  }
+
+  if (goal.type === "chest") {
+    const remaining = Math.max(0, goal.count - (progress.chests ?? 0));
+    return remaining > 0 && remaining <= 1;
+  }
+
+  return false;
+}
+
+function shouldLuckyCascade(goal: LevelGoal, helpMode: boolean, movesLeft: number) {
+  if (!helpMode) return false;
+  if (movesLeft > 1) return false;
+  if (goal.type === "chest") return false;
+  return Math.random() < 0.12;
+}
+
+function rollSpawnPower(level: number, helpMode: boolean, movesLeft: number): PowerType | undefined {
+  if (level < 20) return undefined;
+
+  let chance = 0.008;
+  if (helpMode) chance = movesLeft <= 1 ? 0.022 : 0.012;
+
+  if (Math.random() >= chance) return undefined;
+
+  const r = Math.random();
+  if (r < 0.42) return "bomb";
+  if (r < 0.72) return "stripe_h";
+  if (r < 0.97) return "stripe_v";
+
+  if (helpMode && level >= 80) return "rainbow";
+  return "bomb";
+}
+
 const generateRandomGem = (
   x: number,
   y: number,
   activeTypes: GemType[],
-  chanceForChest = 0
+  chanceForChest = 0,
+  assist?: RefillAssist
 ): Gem => {
   const isChest = Math.random() < chanceForChest;
   const pool = activeTypes.length > 0 ? activeTypes : GEM_TYPES_ALL;
+  const type = isChest
+    ? "chest"
+    : pickWeightedGemType(pool, assist?.favoredTypes, !!assist?.luckyCascade);
+
+  const power =
+    isChest
+      ? undefined
+      : rollSpawnPower(assist?.level ?? 1, !!assist?.helpMode, assist?.movesLeft ?? 99);
 
   return {
     id: newId(),
-    type: isChest ? "chest" : pool[Math.floor(Math.random() * pool.length)],
+    type,
+    power,
     x,
     y,
   };
@@ -122,7 +233,8 @@ const applyGravityAndRefill = (
   mask: boolean[][],
   chestChanceBoss: number,
   chestChanceNormal: number,
-  lvl: number
+  lvl: number,
+  assist?: RefillAssist
 ) => {
   const grid = buildGrid(size, mask, gems);
   const result: Gem[] = [];
@@ -146,7 +258,12 @@ const applyGravityAndRefill = (
         result.push({ ...g, x, y });
       } else {
         const chestChance = lvl % 10 === 0 ? chestChanceBoss : chestChanceNormal;
-        result.push(generateRandomGem(x, y, activeTypes, chestChance));
+        result.push(
+          generateRandomGem(x, y, activeTypes, chestChance, {
+            ...assist,
+            level: lvl,
+          })
+        );
       }
     }
   }
@@ -610,7 +727,6 @@ export const useMatch3 = (active: boolean = true) => {
     Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => true))
   );
 
-  
   const boardSizeRef = useRef(boardSize);
   const maskRef = useRef(mask);
   useEffect(() => {
@@ -667,7 +783,7 @@ export const useMatch3 = (active: boolean = true) => {
     shuffleUsesRef.current = shuffleUses;
   }, [shuffleUses]);
 
-    const [dragonHp, setDragonHp] = useState(0);
+  const [dragonHp, setDragonHp] = useState(0);
   const dragonHpRef = useRef(0);
   const [dragonJustHit, setDragonJustHit] = useState(false);
 
@@ -733,7 +849,7 @@ export const useMatch3 = (active: boolean = true) => {
     });
   }, []);
 
-   const damageDragon = useCallback((amount: number) => {
+  const damageDragon = useCallback((amount: number) => {
     const dmg = Math.max(0, Math.floor(Number(amount) || 0));
     if (dmg <= 0) return;
 
@@ -815,13 +931,13 @@ export const useMatch3 = (active: boolean = true) => {
   }, []);
 
   useEffect(() => {
-  const rules = getLevelRules(level);
-  if (rules.challenge?.type !== "dragon") return;
-  if (dragonHp > 0) return;
-  if (gameOver) return;
+    const rules = getLevelRules(level);
+    if (rules.challenge?.type !== "dragon") return;
+    if (dragonHp > 0) return;
+    if (gameOver) return;
 
-  setGameOver(true);
-}, [dragonHp, level, gameOver]);
+    setGameOver(true);
+  }, [dragonHp, level, gameOver]);
 
   useEffect(() => {
     if (mode !== "moves") return;
@@ -844,7 +960,6 @@ export const useMatch3 = (active: boolean = true) => {
     setGameOver(true);
   }, [mode, timeLeftSec]);
 
-  
   const ensurePlayable = useCallback((g: Gem[], lvl: number) => {
     const size = boardSizeRef.current;
     const m = maskRef.current;
@@ -949,6 +1064,30 @@ export const useMatch3 = (active: boolean = true) => {
           await wait(CLEAR_MS);
 
           const cfg = getLevelConfig(lvl, GEM_TYPES_ALL.length);
+
+          const helpMode = shouldHelpPlayer(
+            rules.goal,
+            progressRef.current,
+            targetScore,
+            movesRef.current
+          );
+
+          const luckyCascade = shouldLuckyCascade(
+            rules.goal,
+            helpMode,
+            movesRef.current
+          );
+
+          const favoredTypes = helpMode
+            ? getFavoredGemTypes(
+                activeGems,
+                activeTypesRef.current,
+                rules.goal,
+                targetScore,
+                progressRef.current
+              )
+            : [];
+
           activeGems = applyGravityAndRefill(
             activeGems,
             activeTypesRef.current,
@@ -956,7 +1095,14 @@ export const useMatch3 = (active: boolean = true) => {
             m,
             cfg.chestChanceBoss,
             cfg.chestChanceNormal,
-            lvl
+            lvl,
+            {
+              favoredTypes,
+              helpMode,
+              luckyCascade,
+              movesLeft: movesRef.current,
+              level: lvl,
+            }
           );
 
           setGems([...activeGems]);
@@ -977,7 +1123,7 @@ export const useMatch3 = (active: boolean = true) => {
         processingRef.current = false;
       }
     },
-    [addScore, countCleared, safePlay, ensurePlayable, triggerMatchFx, addChallengeProgress, damageDragon]
+    [addScore, countCleared, safePlay, ensurePlayable, triggerMatchFx, addChallengeProgress, damageDragon, targetScore]
   );
 
   const startNewGame = useCallback(
@@ -1019,7 +1165,7 @@ export const useMatch3 = (active: boolean = true) => {
       const shardCfg = getShardConfig(lvl);
       const rules = getLevelRules(lvl);
 
-            setDragonJustHit(false);
+      setDragonJustHit(false);
 
       if (rules.challenge?.type === "dragon") {
         const hp = Math.max(0, rules.challenge.hp);
@@ -1029,6 +1175,7 @@ export const useMatch3 = (active: boolean = true) => {
         setDragonHp(0);
         dragonHpRef.current = 0;
       }
+
       if (shardCfg) {
         setMode("timed");
         setTimeLimitSec(shardCfg.timeLimitSec);
@@ -1057,12 +1204,8 @@ export const useMatch3 = (active: boolean = true) => {
       }
 
       const rawTarget = rules.goal.type === "score" ? (rules.goal as any).target : 0;
-      const minTarget = lvl >= 200 ? 2000 : 600;
-      const maxTarget = 4500;
-      const safeTarget = Math.min(
-        maxTarget,
-        Math.max(minTarget, Math.floor(Number(rawTarget) || 0))
-      );
+      const minTarget = 600;
+      const safeTarget = Math.max(minTarget, Math.floor(Number(rawTarget) || 0));
 
       setTargetScore(safeTarget);
 
@@ -1227,6 +1370,30 @@ export const useMatch3 = (active: boolean = true) => {
       await wait(CLEAR_MS);
 
       const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
+
+      const helpMode = shouldHelpPlayer(
+        rules.goal,
+        progressRef.current,
+        targetScore,
+        movesRef.current
+      );
+
+      const luckyCascade = shouldLuckyCascade(
+        rules.goal,
+        helpMode,
+        movesRef.current
+      );
+
+      const favoredTypes = helpMode
+        ? getFavoredGemTypes(
+            after,
+            activeTypesRef.current,
+            rules.goal,
+            targetScore,
+            progressRef.current
+          )
+        : [];
+
       after = applyGravityAndRefill(
         after,
         activeTypesRef.current,
@@ -1234,7 +1401,14 @@ export const useMatch3 = (active: boolean = true) => {
         m,
         cfg.chestChanceBoss,
         cfg.chestChanceNormal,
-        levelRef.current
+        levelRef.current,
+        {
+          favoredTypes,
+          helpMode,
+          luckyCascade,
+          movesLeft: movesRef.current,
+          level: levelRef.current,
+        }
       );
 
       setGems(after);
@@ -1246,7 +1420,7 @@ export const useMatch3 = (active: boolean = true) => {
       setSelectedGem(null);
       setArmedBooster(null);
     },
-    [addScore, countCleared, processMatches, safePlay, triggerMatchFx, addChallengeProgress, damageDragon]
+    [addScore, countCleared, processMatches, safePlay, triggerMatchFx, addChallengeProgress, damageDragon, targetScore]
   );
 
   const selectGem = useCallback(
@@ -1297,6 +1471,29 @@ export const useMatch3 = (active: boolean = true) => {
         const afterClear = current.filter((g) => g.id !== gem.id);
         const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
 
+        const helpMode = shouldHelpPlayer(
+          rules.goal,
+          progressRef.current,
+          targetScore,
+          movesRef.current
+        );
+
+        const luckyCascade = shouldLuckyCascade(
+          rules.goal,
+          helpMode,
+          movesRef.current
+        );
+
+        const favoredTypes = helpMode
+          ? getFavoredGemTypes(
+              afterClear,
+              activeTypesRef.current,
+              rules.goal,
+              targetScore,
+              progressRef.current
+            )
+          : [];
+
         let refilled = applyGravityAndRefill(
           afterClear,
           activeTypesRef.current,
@@ -1304,7 +1501,14 @@ export const useMatch3 = (active: boolean = true) => {
           m,
           cfg.chestChanceBoss,
           cfg.chestChanceNormal,
-          levelRef.current
+          levelRef.current,
+          {
+            favoredTypes,
+            helpMode,
+            luckyCascade,
+            movesLeft: movesRef.current,
+            level: levelRef.current,
+          }
         );
 
         setGems(refilled);
@@ -1451,6 +1655,30 @@ export const useMatch3 = (active: boolean = true) => {
         let after = swapped.filter((gg) => !clearIds.has(gg.id));
 
         const cfg = getLevelConfig(levelRef.current, GEM_TYPES_ALL.length);
+
+        const helpMode = shouldHelpPlayer(
+          rules.goal,
+          progressRef.current,
+          targetScore,
+          movesRef.current
+        );
+
+        const luckyCascade = shouldLuckyCascade(
+          rules.goal,
+          helpMode,
+          movesRef.current
+        );
+
+        const favoredTypes = helpMode
+          ? getFavoredGemTypes(
+              after,
+              activeTypesRef.current,
+              rules.goal,
+              targetScore,
+              progressRef.current
+            )
+          : [];
+
         after = applyGravityAndRefill(
           after,
           activeTypesRef.current,
@@ -1458,7 +1686,14 @@ export const useMatch3 = (active: boolean = true) => {
           m,
           cfg.chestChanceBoss,
           cfg.chestChanceNormal,
-          levelRef.current
+          levelRef.current,
+          {
+            favoredTypes,
+            helpMode,
+            luckyCascade,
+            movesLeft: movesRef.current,
+            level: levelRef.current,
+          }
         );
 
         setGems(after);
@@ -1499,6 +1734,7 @@ export const useMatch3 = (active: boolean = true) => {
       activateBoosterOnGem,
       addChallengeProgress,
       damageDragon,
+      targetScore,
     ]
   );
 
@@ -1527,10 +1763,7 @@ export const useMatch3 = (active: boolean = true) => {
   });
 
   const challengeMet = isChallengeMet(currentChallenge, progress, dragonHp);
-  const passed =
-  currentChallenge.type === "dragon"
-    ? challengeMet
-    : goalMet && challengeMet;
+  const passed = currentChallenge.type === "dragon" ? challengeMet : goalMet && challengeMet;
   const canGoNext = passed;
 
   return {
@@ -1574,7 +1807,7 @@ export const useMatch3 = (active: boolean = true) => {
     cancelArmedBooster,
     addBonusMoves,
 
-        currentChallenge,
+    currentChallenge,
     challengeProgress: progress.challenge,
     goalMet,
     challengeMet,
