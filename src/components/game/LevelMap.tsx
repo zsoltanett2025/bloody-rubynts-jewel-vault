@@ -50,7 +50,7 @@ export function LevelMap(props: {
     return window.matchMedia("(max-width: 1024px)").matches;
   }, []);
 
-   React.useEffect(() => {
+  React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
@@ -73,7 +73,7 @@ export function LevelMap(props: {
     return () => window.clearInterval(id);
   }, []);
 
-    React.useEffect(() => {
+  React.useEffect(() => {
     if (isMobile) return;
 
     const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -91,32 +91,44 @@ export function LevelMap(props: {
   const currentNode = nodes.find((n) => n.level === currentLevel);
 
   return (
-    <div className="relative w-full h-[100svh] overflow-hidden bg-[#050505]">
+    <div className="relative w-full h-[100svh] overflow-hidden bg-[#050505] text-white">
+      {/* Single clean background image */}
       <div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
-          backgroundImage: `
-            linear-gradient(180deg, rgba(0,0,0,0.40), rgba(0,0,0,0.72)),
-            radial-gradient(1200px 600px at 50% 0%, rgba(220,38,38,0.20), transparent 60%),
-            url('${backgrounds[bgIndex]}')
-          `,
-          backgroundSize: "cover",
-          backgroundPosition: isMobile ? "center top" : "center center",
-          backgroundRepeat: "no-repeat",
-          backgroundAttachment: isMobile ? "scroll" : "fixed",
-          backgroundColor: "#050505",
+  backgroundImage: `url('${backgrounds[bgIndex]}')`,
+  backgroundSize: isMobile ? "80% auto" : "55% auto",
+  backgroundPosition: isMobile ? "center top" : "center center",
+  backgroundRepeat: "no-repeat",
+  backgroundColor: "#2b0000",
+}}
+      />
+
+      {/* Soft dark overlay only */}
+     <div className="absolute inset-0 z-0 pointer-events-none bg-black/25" />
+
+      {/* Very subtle top glow */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+         background:
+            "radial-gradient(900px 420px at 50% 0%, rgba(220,38,38,0.08), transparent 62%)",
         }}
       />
 
       <div
         ref={scrollRef}
-        className={`relative z-10 w-full h-[100svh] ${isMobile ? "overflow-y-auto" : "overflow-y-hidden"} scroll-pt-20`}
+        className="relative z-10 w-full h-[100svh] overflow-y-auto scroll-pt-20"
       >
-        <div className="w-full">
+        <div className="w-full bg-transparent">
           <svg
             width="100%"
             viewBox={`0 0 420 ${svgH}`}
-            style={{ height: svgH, display: "block" }}
+            style={{
+              height: svgH,
+              display: "block",
+              background: "transparent",
+            }}
           >
             <g transform={`translate(0 ${translateY})`}>
               {currentNode && (
@@ -134,7 +146,6 @@ export function LevelMap(props: {
                 const isCurrent = n.level === currentLevel;
                 const isDone = n.level < currentLevel;
                 const isBuilt = n.level <= totalLevels;
-
                 const isComingSoon = false;
                 const isProgressLocked = n.level > unlockedLevel;
 
@@ -167,16 +178,16 @@ export function LevelMap(props: {
                         }}
                         className={[
                           "w-[60px] h-[60px] rounded-full flex items-center justify-center",
-                          "border shadow-lg",
-                          isProgressLocked
-                            ? "bg-white/5 border-white/10 text-white/30"
-                            : isCurrent
-                              ? "bg-red-600/85 border-red-200/40 text-white"
-                              : isDone
-                                ? "bg-white/10 border-white/20 text-white/85"
-                                : isBuilt
-                                  ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/15"
-                                  : "bg-white/5 border-white/10 text-white/55",
+                          "border shadow-lg transition-all duration-200 shadow-[0_0_10px_rgba(255,255,255,0.15)]",
+                         isProgressLocked
+                           ? "bg-white/5 border-white/10 text-white/30"
+                           : isCurrent
+                             ? "bg-red-600/85 border-red-200/40 text-white"
+                             : isDone
+                               ? "bg-white/10 border-white/20 text-white/85"
+                               : isBuilt
+                                 ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/15"
+                                 : "bg-white/5 border-white/10 text-white/55",
                         ].join(" ")}
                         title={isProgressLocked ? "Locked" : `Level ${n.level}`}
                       >

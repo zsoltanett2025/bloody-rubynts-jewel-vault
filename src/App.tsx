@@ -773,22 +773,32 @@ const tileSize = useMemo(() => {
     extraMoves: 0,
   };
 
-  return (
+    return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
-      <div
-        className="fixed inset-0 z-0 transition-opacity duration-700 pointer-events-none"
-        style={{
-          backgroundImage: `url('${bgUrl}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          filter: "blur(1px)",
-          opacity: 0.92,
-        }}
-      />
-      <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/40 via-red-950/20 to-black/70 md:from-black/20 md:via-red-950/10 md:to-black/40 pointer-events-none" />
+      {screen !== "map" && (
+        <>
+          <div
+            className="fixed inset-0 z-0 transition-opacity duration-700 pointer-events-none"
+            style={{
+              backgroundImage: `url('${bgUrl}')`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              filter: "blur(1px)",
+              opacity: 0.92,
+            }}
+          />
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/40 via-red-950/20 to-black/70 md:from-black/20 md:via-red-950/10 md:to-black/40 pointer-events-none" />
+        </>
+      )}
 
-      <div className="relative z-10 min-h-[100svh] w-full flex flex-col items-center justify-center pt-32 md:pt-36">
+      <div
+  className={`relative z-10 min-h-[100svh] w-full flex flex-col items-center ${
+    screen === "map"
+      ? "justify-start pt-0 md:pt-0"
+      : "justify-center pt-32 md:pt-36"
+  }`}
+>
         {screen === "game" && story && (
           <StorySidePanels
             leftText={story.left}
@@ -823,8 +833,17 @@ const tileSize = useMemo(() => {
         )}
 
         {screen === "map" && (
-          <div className="relative w-full" style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}>
-            {story && <StorySidePanels leftText={story.left} rightText={story.right} showKnights={true} />}
+          <div
+            className="relative w-full"
+            style={{ paddingTop: 56, height: "100svh", overflow: "hidden" }}
+          >
+            {story && (
+              <StorySidePanels
+                leftText={story.left}
+                rightText={story.right}
+                showKnights={true}
+              />
+            )}
 
             <div className="w-full h-full">
               <LevelMap
@@ -857,15 +876,15 @@ const tileSize = useMemo(() => {
           </div>
         )}
 
-       {screen === "game" && (
-         <>
-          <div
-            className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0"
-            style={{
-            width: m3.boardSize * tileSize,
-           height: m3.boardSize * tileSize,
-        }}
-       >
+        {screen === "game" && (
+          <>
+            <div
+              className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0"
+              style={{
+                width: m3.boardSize * tileSize,
+                height: m3.boardSize * tileSize,
+              }}
+            >
               {m3.gems.map((g) => (
                 <GemComponent
                   key={g.id}
@@ -956,8 +975,8 @@ const tileSize = useMemo(() => {
                   {boosterHint
                     ? boosterHint
                     : m3.armedBooster
-                      ? "Tap a gem on the board to use the selected booster."
-                      : "Boosters are ready. Bomb / Striped / Rainbow select a target, +5 moves applies instantly."}
+                    ? "Tap a gem on the board to use the selected booster."
+                    : "Boosters are ready. Bomb / Striped / Rainbow select a target, +5 moves applies instantly."}
                 </div>
               </div>
             </div>
