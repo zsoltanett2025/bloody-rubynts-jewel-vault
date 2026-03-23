@@ -97,8 +97,8 @@ export function LevelMap(props: {
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
   backgroundImage: `url('${backgrounds[bgIndex]}')`,
-  backgroundSize: isMobile ? "80% auto" : "55% auto",
-  backgroundPosition: isMobile ? "center top" : "center center",
+  backgroundSize: isMobile ? "cover" : "55% auto",
+  backgroundPosition: isMobile ? "center 40%" : "center center",
   backgroundRepeat: "no-repeat",
   backgroundColor: "#2b0000",
 }}
