@@ -69,12 +69,19 @@ export function GemComponent({
 
   const isPower = !!powerIcon && gem.type !== "chest";
 
-  const transform = `translate3d(${x}px, ${y}px, 0) scale(${isSelected ? 1.04 : 1})`;
+  const scale = isFlashing ? 1.12 : isSelected ? 1.04 : 1;
+  const transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
 
   const dragonGlow =
     isDragonLevel && gem.type !== "chest"
       ? "drop-shadow-[0_0_8px_rgba(255,70,70,0.22)]"
       : "";
+
+  const matchGlow = isFlashing
+    ? "drop-shadow-[0_0_20px_rgba(255,90,90,0.6)] drop-shadow-[0_0_30px_rgba(255,255,255,0.25)]"
+    : isPower
+      ? "drop-shadow-[0_0_10px_rgba(255,120,120,0.28)]"
+      : "drop-shadow-[0_0_6px_rgba(255,255,255,0.08)]";
 
   const selectionRing = isSelected
     ? "ring-2 ring-white"
@@ -94,17 +101,19 @@ export function GemComponent({
         width: size,
         height: size,
         touchAction: "manipulation",
-        willChange: "transform",
+        willChange: "transform, opacity, filter",
         transform,
-        transition: "transform 180ms ease-out",
+        transition: isFlashing
+          ? "transform 120ms ease-out, filter 120ms ease-out, opacity 120ms ease-out"
+          : "transform 180ms ease-out, filter 180ms ease-out, opacity 180ms ease-out",
       }}
     >
       <img
         src={baseGemUrl}
         alt={gem.type}
         draggable={false}
-        className={`w-full h-full object-cover pointer-events-none ${dragonGlow}`}
-        style={{ opacity: isPower ? 0.35 : 1 }}
+        className={`w-full h-full object-cover pointer-events-none ${dragonGlow} ${matchGlow}`}
+        style={{ opacity: isPower ? 0.42 : 1 }}
       />
 
       {isPower && (
@@ -118,6 +127,17 @@ export function GemComponent({
 
       {isDragonLevel && !isPower && gem.type !== "chest" && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-500/6 via-transparent to-black/8" />
+      )}
+
+      {isFlashing && (
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-white/28" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-300/30 via-transparent to-red-900/20" />
+        </>
+      )}
+
+      {!isFlashing && !isPower && gem.type !== "chest" && (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-black/10" />
       )}
 
       <div className={`absolute inset-0 rounded-xl ${selectionRing}`} />

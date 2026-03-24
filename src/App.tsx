@@ -172,8 +172,6 @@ function formatDurationShort(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-
-
 function getObjectiveIcon(rules: LevelRules): string {
   if (rules.challenge?.type === "lava") {
     return assetUrl("assets/objectives/objective_dragon_caged_01.png");
@@ -269,11 +267,9 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
     lives,
     maxLives,
     spendLife,
-
     addRubynts,
     addInventoryItem,
     consumeInventoryItem,
-
     refreshRubyntBalance,
   } = useGame();
 
@@ -302,18 +298,18 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   const shardCount = shardsFoundLevels.length;
 
   const [currentLevel, setCurrentLevel] = useState(() => {
-  const rawCurrent = localStorage.getItem(LS_CURRENT);
-  return safeStoredLevel(rawCurrent, 1);
-});
+    const rawCurrent = localStorage.getItem(LS_CURRENT);
+    return safeStoredLevel(rawCurrent, 1);
+  });
 
-const [unlockedLevel, setUnlockedLevel] = useState(() => {
-  const rawUnlocked = localStorage.getItem(LS_UNLOCKED);
-  const safeUnlocked = safeStoredLevel(rawUnlocked, 1);
-  const rawCurrent = localStorage.getItem(LS_CURRENT);
-  const safeCurrent = safeStoredLevel(rawCurrent, 1);
+  const [unlockedLevel, setUnlockedLevel] = useState(() => {
+    const rawUnlocked = localStorage.getItem(LS_UNLOCKED);
+    const safeUnlocked = safeStoredLevel(rawUnlocked, 1);
+    const rawCurrent = localStorage.getItem(LS_CURRENT);
+    const safeCurrent = safeStoredLevel(rawCurrent, 1);
 
-  return Math.max(safeUnlocked, safeCurrent);
-});
+    return Math.max(safeUnlocked, safeCurrent);
+  });
 
   const [infLifeLeftMs, setInfLifeLeftMs] = useState(() => getInfiniteLifeLeftMs());
 
@@ -565,28 +561,27 @@ const [unlockedLevel, setUnlockedLevel] = useState(() => {
     m3.startNewGame(currentLevel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, currentLevel]);
-const tileSize = useMemo(() => {
-  const bs = m3.boardSize || 8;
 
-  const horizontalSpace = vw - 32;
+  const tileSize = useMemo(() => {
+    const bs = m3.boardSize || 8;
 
-  // ⬇️ kicsit nagyobb hely a felső HUD-nak
-  const topHudReserve = screen === "game" ? 340 : 160;
+    const horizontalSpace = vw - 32;
+    const topHudReserve = screen === "game" ? 340 : 160;
+    const bottomReserve = screen === "game" ? 185 : 100;
+    const verticalSpace = Math.max(260, vh - topHudReserve - bottomReserve);
 
-  const bottomReserve = screen === "game" ? 185 : 100;
+    const usable = Math.min(horizontalSpace, verticalSpace);
 
-  const verticalSpace = Math.max(260, vh - topHudReserve - bottomReserve);
-
-  const usable = Math.min(horizontalSpace, verticalSpace);
-
-  return Math.max(34, Math.min(60, Math.floor(usable / bs)));
-}, [vw, vh, m3.boardSize, screen]);
+    return Math.max(34, Math.min(60, Math.floor(usable / bs)));
+  }, [vw, vh, m3.boardSize, screen]);
 
   const desiredBg = useMemo(() => {
     const fallback = GAME_ASSETS.menuBackground;
 
     if (screen === "menu") return GAME_ASSETS.menuBackground;
-    if (screen === "map") return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
+    if (screen === "map") {
+      return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
+    }
     return pickBgByBlock(GAME_ASSETS.storyBackgrounds, m3.level, 20, fallback);
   }, [screen, currentLevel, m3.level]);
 
@@ -773,7 +768,7 @@ const tileSize = useMemo(() => {
     extraMoves: 0,
   };
 
-    return (
+  return (
     <div className="min-h-screen w-full bg-[#1a0505] text-white overflow-hidden font-sans relative">
       {screen !== "map" && (
         <>
@@ -793,12 +788,12 @@ const tileSize = useMemo(() => {
       )}
 
       <div
-  className={`relative z-10 min-h-[100svh] w-full flex flex-col items-center ${
-    screen === "map"
-      ? "justify-start pt-0 md:pt-0"
-      : "justify-center pt-32 md:pt-36"
-  }`}
->
+        className={`relative z-10 min-h-[100svh] w-full flex flex-col items-center ${
+          screen === "map"
+            ? "justify-start pt-0 md:pt-0"
+            : "justify-center pt-32 md:pt-36"
+        }`}
+      >
         {screen === "game" && story && (
           <StorySidePanels
             leftText={story.left}
@@ -879,7 +874,9 @@ const tileSize = useMemo(() => {
         {screen === "game" && (
           <>
             <div
-              className="relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0"
+              className={`relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0 overflow-hidden ${
+                m3.scorePops?.some((pop) => pop.value >= 140) ? "br-board-shake" : ""
+              }`}
               style={{
                 width: m3.boardSize * tileSize,
                 height: m3.boardSize * tileSize,
@@ -896,6 +893,80 @@ const tileSize = useMemo(() => {
                   level={m3.level}
                 />
               ))}
+
+              {m3.scorePops?.map((pop) => {
+                const bigHit = pop.value >= 90;
+                const hugeHit = pop.value >= 140;
+
+                return (
+                  <div
+                    key={pop.id}
+                    className="pointer-events-none absolute left-0 top-0 z-30"
+                    style={{
+                      transform: `translate(${pop.x * tileSize + tileSize / 2}px, ${pop.y * tileSize + tileSize / 2}px)`,
+                    }}
+                  >
+                    {(bigHit || hugeHit) && (
+                      <>
+                        <div
+                          className="br-blast-ring"
+                          style={{
+                            left: 0,
+                            top: 0,
+                            width: hugeHit ? 118 : 92,
+                            height: hugeHit ? 118 : 92,
+                          }}
+                        />
+                        <div
+                          className="br-blast-core"
+                          style={{
+                            left: 0,
+                            top: 0,
+                            width: hugeHit ? 56 : 46,
+                            height: hugeHit ? 56 : 46,
+                          }}
+                        />
+                      </>
+                    )}
+
+                    <div
+                      className={`animate-[scorePop_850ms_ease-out_forwards] -translate-x-1/2 -translate-y-1/2 select-none ${
+                        hugeHit ? "scale-125" : bigHit ? "scale-110" : ""
+                      }`}
+                      style={{
+                        textShadow:
+                          hugeHit
+                            ? "0 0 12px rgba(255,255,255,0.45), 0 0 26px rgba(255,80,80,0.38)"
+                            : "0 0 10px rgba(255,255,255,0.35), 0 0 18px rgba(255,80,80,0.28)",
+                      }}
+                    >
+                      <div
+                        className={`px-2 py-0.5 rounded-full border backdrop-blur-[2px] ${
+                          hugeHit
+                            ? "bg-red-950/50 border-red-200/35"
+                            : bigHit
+                              ? "bg-red-950/40 border-red-300/25"
+                              : "bg-black/35 border-red-300/20"
+                        }`}
+                      >
+                        <span
+                          className={`font-black tracking-wide ${
+                            hugeHit
+                              ? "text-sm sm:text-base text-white"
+                              : "text-[12px] sm:text-sm text-red-100"
+                          }`}
+                        >
+                          +{pop.value}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {m3.scorePops?.some((pop) => pop.value >= 140) && (
+                <div className="br-board-pulse z-20" />
+              )}
             </div>
 
             <div className="mt-3 w-full max-w-[min(92vw,560px)] px-2">
@@ -975,8 +1046,8 @@ const tileSize = useMemo(() => {
                   {boosterHint
                     ? boosterHint
                     : m3.armedBooster
-                    ? "Tap a gem on the board to use the selected booster."
-                    : "Boosters are ready. Bomb / Striped / Rainbow select a target, +5 moves applies instantly."}
+                      ? "Tap a gem on the board to use the selected booster."
+                      : "Boosters are ready. Bomb / Striped / Rainbow select a target, +5 moves applies instantly."}
                 </div>
               </div>
             </div>
@@ -1104,7 +1175,7 @@ const tileSize = useMemo(() => {
                     : "Out of moves!"}
             </h2>
 
-                        {endWon && (
+            {endWon && (
               <>
                 <div className="text-xl mb-3">
                   {"★".repeat(endStars)}

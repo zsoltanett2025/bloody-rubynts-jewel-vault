@@ -26,6 +26,38 @@ const GRAVITY_MS = 420;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function getPopCenter(clearedGems: Gem[]) {
+  if (clearedGems.length === 0) return { x: 0, y: 0 };
+
+  const x = clearedGems.reduce((sum, g) => sum + g.x, 0) / clearedGems.length;
+  const y = clearedGems.reduce((sum, g) => sum + g.y, 0) / clearedGems.length;
+
+  return { x, y };
+}
+
+function buildMatchPops(clearedGems: Gem[], combo: number, totalScore: number): ScorePop[] {
+  if (clearedGems.length === 0) return [];
+
+  const center = getPopCenter(clearedGems);
+
+  const mainPop: ScorePop = {
+    id: `p_${newId()}_main`,
+    x: center.x,
+    y: center.y - 0.15,
+    value: totalScore,
+  };
+
+  const miniPops = clearedGems
+    .slice(0, combo >= 2 ? 4 : 2)
+    .map((g, i) => ({
+      id: `p_${newId()}_${g.id}_${i}`,
+      x: g.x,
+      y: g.y,
+      value: combo >= 2 ? 15 * combo : 10,
+    }));
+
+  return [mainPop, ...miniPops];
+}
 type ChallengeProgress = {
   bombsUsed: number;
   rainbowsUsed: number;
@@ -45,6 +77,8 @@ export type ScorePop = {
   y: number;
   value: number;
 };
+
+type FxIntensity = "normal" | "big" | "huge";
 
 type RefillAssist = {
   favoredTypes?: GemType[];
@@ -863,20 +897,35 @@ export const useMatch3 = (active: boolean = true) => {
     window.setTimeout(() => setDragonJustHit(false), 260);
   }, []);
 
-  const triggerMatchFx = useCallback((ids: string[], pops: ScorePop[]) => {
-    setFlashIds(ids);
+    const triggerMatchFx = useCallback(
+    (ids: string[], pops: ScorePop[], intensity: FxIntensity = "normal") => {
+      const flashMs = intensity === "huge" ? 320 : intensity === "big" ? 270 : 220;
+      const popMs = intensity === "huge" ? 1100 : intensity === "big" ? 950 : 850;
 
-    if (pops.length) setScorePops((prev) => [...prev, ...pops]);
+      setFlashIds(ids);
 
-    window.setTimeout(() => setFlashIds([]), 220);
+      if (pops.length) {
+        setScorePops((prev) => [...prev, ...pops]);
+      }
 
-    if (pops.length) {
-      const popIds = new Set(pops.map((p) => p.id));
-      window.setTimeout(() => {
-        setScorePops((prev) => prev.filter((p) => !popIds.has(p.id)));
-      }, 850);
-    }
-  }, []);
+      if (intensity !== "normal" && ids.length > 0) {
+        window.setTimeout(() => {
+          setFlashIds((prev) => Array.from(new Set([...prev, ...ids])));
+          window.setTimeout(() => setFlashIds([]), 120);
+        }, 90);
+      }
+
+      window.setTimeout(() => setFlashIds([]), flashMs);
+
+      if (pops.length) {
+        const popIds = new Set(pops.map((p) => p.id));
+        window.setTimeout(() => {
+          setScorePops((prev) => prev.filter((p) => !popIds.has(p.id)));
+        }, popMs);
+      }
+    },
+    []
+  );
 
   const addScore = useCallback(
     (add: number) => {
@@ -1034,25 +1083,32 @@ export const useMatch3 = (active: boolean = true) => {
 
           const clearedGems = activeGems.filter((g) => clearIds.has(g.id));
 
+          const baseScore = clearedGems.length * 10 * combo;
+          const comboBonus = combo >= 2 ? 15 * combo : 0;
+          const matchScore = baseScore + comboBonus;
+
+          const fxIntensity: FxIntensity =
+            createPower?.power === "rainbow" || combo >= 3 || clearedGems.length >= 6
+              ? "huge"
+              : combo >= 2 || clearedGems.length >= 4 || !!createPower
+                ? "big"
+                : "normal";
+
           triggerMatchFx(
             Array.from(clearIds),
-            clearedGems.slice(0, 8).map((gg) => ({
-              id: `p_${newId()}_${gg.id}`,
-              x: gg.x,
-              y: gg.y,
-              value: 10 * combo,
-            }))
+            buildMatchPops(clearedGems, combo, matchScore),
+            fxIntensity
           );
 
-          addScore(clearedGems.length * 10 * combo);
+          addScore(matchScore);
           countCleared(clearedGems);
 
           if (isDragonLevel) {
             const normalHitCount = clearedGems.filter((g) => g.type !== "chest").length;
             const baseDamage = Math.max(1, Math.floor(normalHitCount / 6));
-            const comboBonus = combo >= 3 ? 1 : 0;
+            const comboBonusDamage = combo >= 3 ? 1 : 0;
             const powerBonus = createPower ? 1 : 0;
-            damageDragon(baseDamage + comboBonus + powerBonus);
+            damageDragon(baseDamage + comboBonusDamage + powerBonus);
           }
 
           safePlay(combo === 1 ? "match" : "combo");
@@ -1334,14 +1390,18 @@ export const useMatch3 = (active: boolean = true) => {
       const chestHits = cleared.filter((gg) => gg.type === "chest").length;
       const normalHits = cleared.filter((gg) => gg.type !== "chest");
 
+            const boosterScore =
+        normalHits.length * 12 +
+        chestHits * 500 +
+        (booster === "rainbow" ? 120 : booster === "striped" ? 60 : 40);
+
+      const boosterIntensity: FxIntensity =
+        booster === "rainbow" || clearIds.size >= 8 ? "huge" : "big";
+
       triggerMatchFx(
         Array.from(clearIds),
-        cleared.slice(0, 10).map((gg) => ({
-          id: `p_${newId()}_${gg.id}_B`,
-          x: gg.x,
-          y: gg.y,
-          value: gg.type === "chest" ? 500 : 20,
-        }))
+        buildMatchPops(cleared, booster === "rainbow" ? 3 : 2, boosterScore),
+        boosterIntensity
       );
 
       if (chestHits > 0) {
@@ -1361,7 +1421,7 @@ export const useMatch3 = (active: boolean = true) => {
         damageDragon(boosterDamage + hitDamage);
       }
 
-      addScore(normalHits.length * 12 + chestHits * 500);
+      addScore(boosterScore);
 
       let after = current.filter((gg) => !clearIds.has(gg.id));
       setGems(after);
@@ -1462,9 +1522,11 @@ export const useMatch3 = (active: boolean = true) => {
           damageDragon(1);
         }
 
-        triggerMatchFx([gem.id], [
-          { id: `p_${newId()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 },
-        ]);
+          triggerMatchFx(
+          [gem.id],
+          [{ id: `p_${newId()}_${gem.id}_CHEST`, x: gem.x, y: gem.y, value: 500 }],
+          "big"
+        );
 
         addScore(500);
 
@@ -1625,14 +1687,17 @@ export const useMatch3 = (active: boolean = true) => {
         }
 
         const cleared = swapped.filter((gg) => clearIds.has(gg.id));
+                const powerSwapScore =
+          cleared.length * 12 +
+          (powers.includes("rainbow") ? 90 : powers.includes("bomb") ? 45 : 30);
+
+        const powerSwapIntensity: FxIntensity =
+          powers.includes("rainbow") || clearIds.size >= 8 ? "huge" : "big";
+
         triggerMatchFx(
           Array.from(clearIds),
-          cleared.slice(0, 8).map((gg) => ({
-            id: `p_${newId()}_${gg.id}_P`,
-            x: gg.x,
-            y: gg.y,
-            value: 20,
-          }))
+          buildMatchPops(cleared, powers.includes("rainbow") ? 3 : 2, powerSwapScore),
+          powerSwapIntensity
         );
 
         if (isDragonLevel) {
@@ -1649,7 +1714,7 @@ export const useMatch3 = (active: boolean = true) => {
           damageDragon(powerDamage + hitDamage);
         }
 
-        addScore(cleared.length * 12);
+        addScore(powerSwapScore);
         countCleared(cleared);
 
         let after = swapped.filter((gg) => !clearIds.has(gg.id));
