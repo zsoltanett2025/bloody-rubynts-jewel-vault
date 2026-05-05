@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* 🔥 SHAKE EFFECT */
+@keyframes brShake {
+  0% { transform: translate(0px, 0px); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  60% { transform: translate(-2px, 1px); }
+  80% { transform: translate(2px, 1px); }
+  100% { transform: translate(0px, 0px); }
+}
+
+.br-shake {
+  animation: brShake 220ms ease;
+}
+
 html, body, #root {
   width: 100%;
   height: 100%;

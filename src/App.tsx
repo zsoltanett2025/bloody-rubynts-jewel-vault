@@ -20,7 +20,7 @@ import confetti from "canvas-confetti";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoginPage as LoginPageComp } from "./pages/LoginPage";
 import { useAuth } from "./app/auth/AuthProvider";
-
+import { LevelPortalTransition } from "./components/game/LevelPortalTransition";
 import { useMatch3 } from "./components/game/useMatch3";
 import { GemComponent } from "./components/game/GemComponent";
 import { DailyChestModal } from "./components/daily/DailyChestModal";
@@ -286,10 +286,11 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   const [showShop, setShowShop] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
   const [boosterHint, setBoosterHint] = useState<string>("");
-
+  const [comboText, setComboText] = useState<string | null>(null);
   const [endOpen, setEndOpen] = useState(false);
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
+  const [showPortalTransition, setShowPortalTransition] = useState(false);
 
   const [showShards, setShowShards] = useState(false);
   const [shardsFoundLevels, setShardsFoundLevels] = useState<number[]>(() =>
@@ -448,7 +449,38 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   }, []);
 
   const m3 = useMatch3(screen === "game");
+ const lastComboScoreRef = useRef<number>(0);
 
+useEffect(() => {
+  if (screen !== "game") {
+    setComboText(null);
+    lastComboScoreRef.current = 0;
+    return;
+  }
+
+  if (m3.score <= 0) {
+    setComboText(null);
+    lastComboScoreRef.current = 0;
+    return;
+  }
+
+  if (m3.score <= lastComboScoreRef.current) return;
+
+  const gained = m3.score - lastComboScoreRef.current;
+  lastComboScoreRef.current = m3.score;
+
+  if (gained < 30) return;
+
+  setComboText(
+    gained >= 140 ? "Ruby Blast!" : gained >= 90 ? "Great!" : "Nice!"
+  );
+
+  const id = window.setTimeout(() => {
+    setComboText(null);
+  }, 480);
+
+  return () => window.clearTimeout(id);
+}, [screen, m3.score]);
   const levelRules = useMemo(() => {
     const lvl = screen === "game" ? m3.level : currentLevel;
     return getLevelRules(lvl);
@@ -750,6 +782,34 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
 
   const endActionLockRef = useRef(false);
 
+  const goToNextLevelWithPortal = useCallback(() => {
+    const next = clampLevel(m3.level + 1);
+
+    endActionLockRef.current = true;
+    setEndOpen(false);
+    setShowPortalTransition(true);
+
+    setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
+
+    window.setTimeout(() => {
+      setCurrentLevel(next);
+
+      reportedPassRef.current = 0;
+      endShownForRef.current = "";
+
+      lastStartedRef.current = 0;
+      setScreen("game");
+    }, 1200);
+
+    window.setTimeout(() => {
+      setShowPortalTransition(false);
+    }, 1800);
+
+    window.setTimeout(() => {
+      endActionLockRef.current = false;
+    }, 2200);
+  }, [m3.level]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-gothic animate-pulse">
@@ -874,9 +934,10 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
         {screen === "game" && (
           <>
             <div
-              className={`relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0 overflow-hidden ${
-                m3.scorePops?.some((pop) => pop.value >= 140) ? "br-board-shake" : ""
-              }`}
+              
+                className={`relative rounded-3xl bg-black/20 backdrop-blur-sm border border-white/10 mt-4 sm:mt-0 overflow-hidden ${
+                  m3.scorePops?.some((pop) => pop.value >= 140) ? "br-shake" : ""
+                }`}
               style={{
                 width: m3.boardSize * tileSize,
                 height: m3.boardSize * tileSize,
@@ -963,7 +1024,14 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
                   </div>
                 );
               })}
-
+               {comboText && (
+                <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+                 <div className="animate-[scorePop_480ms_ease-out_forwards] rounded-full border border-red-200/30 bg-black/35 px-3 py-1 text-lg sm:text-xl font-black text-white drop-shadow-[0_0_10px_rgba(255,80,80,0.65)]">
+                   {comboText}
+                 </div>
+               </div>
+              )} 
+             
               {m3.scorePops?.some((pop) => pop.value >= 140) && (
                 <div className="br-board-pulse z-20" />
               )}
@@ -1216,23 +1284,15 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
                 className="px-4 py-2 rounded-full bg-red-900/60 hover:bg-red-800 br-win-modal"
                 onClick={() => {
                   if (endActionLockRef.current) return;
-                  endActionLockRef.current = true;
 
                   playSound("click");
-                  setEndOpen(false);
 
                   if (endWon) {
-                    const next = clampLevel(m3.level + 1);
-                    setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
-                    setCurrentLevel(next);
-
-                    reportedPassRef.current = 0;
-                    endShownForRef.current = "";
-
-                    lastStartedRef.current = 0;
-                    m3.startNewGame(next);
-                    setScreen("game");
+                    goToNextLevelWithPortal();
                   } else {
+                    endActionLockRef.current = true;
+                    setEndOpen(false);
+
                     const L = typeof lives === "number" ? lives : 3;
                     if (L <= 0) {
                       setScreen("map");
@@ -1250,11 +1310,11 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
                     lastStartedRef.current = 0;
                     m3.startNewGame(m3.level);
                     setScreen("game");
-                  }
 
-                  window.setTimeout(() => {
-                    endActionLockRef.current = false;
-                  }, 350);
+                    window.setTimeout(() => {
+                      endActionLockRef.current = false;
+                    }, 350);
+                  }
                 }}
                 type="button"
               >
@@ -1264,6 +1324,12 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         </div>
       )}
+
+      <LevelPortalTransition
+        open={showPortalTransition}
+        level={m3.level}
+        nextLevel={clampLevel(m3.level + 1)}
+      />
 
       {story && (
         <StoryOverlay

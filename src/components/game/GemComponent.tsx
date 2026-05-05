@@ -130,11 +130,17 @@ export function GemComponent({
       )}
 
       {isFlashing && (
-        <>
-          <div className="pointer-events-none absolute inset-0 bg-white/28" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-300/30 via-transparent to-red-900/20" />
-        </>
-      )}
+  <>
+    <div className="pointer-events-none absolute inset-0 bg-white/30 animate-pulse" />
+    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-300/35 via-transparent to-red-900/25" />
+
+    <div className="pointer-events-none absolute left-1/2 top-1/2 h-3/4 w-3/4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 animate-ping" />
+
+    <div className="pointer-events-none absolute left-[18%] top-[20%] h-1.5 w-1.5 rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+    <div className="pointer-events-none absolute right-[20%] top-[28%] h-1 w-1 rounded-full bg-red-200/90 shadow-[0_0_10px_rgba(255,120,120,0.9)]" />
+    <div className="pointer-events-none absolute bottom-[22%] left-[30%] h-1 w-1 rounded-full bg-white/75 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+  </>
+)}
 
       {!isFlashing && !isPower && gem.type !== "chest" && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-black/10" />
