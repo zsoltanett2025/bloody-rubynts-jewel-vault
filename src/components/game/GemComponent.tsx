@@ -16,6 +16,7 @@ export function GemComponent({
   size,
   isSelected,
   isFlashing,
+  isSpawning, // ÚJ: Jelzi, hogy most született-e a kő
   onClick,
   level,
 }: {
@@ -23,6 +24,7 @@ export function GemComponent({
   size: number;
   isSelected: boolean;
   isFlashing?: boolean;
+  isSpawning?: boolean; // ÚJ
   onClick: () => void;
   level?: number;
 }) {
@@ -52,9 +54,15 @@ export function GemComponent({
   const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
 
   const baseGemUrl = useMemo(() => {
-    if (simpleSkins) return pool[0] ?? GAME_ASSETS.gems.ruby_round;
-    return pool[hashToIndex(gem.id, pool.length)] ?? GAME_ASSETS.gems.ruby_round;
-  }, [simpleSkins, pool, gem.id]);
+  const currentPool =
+    pools[gem.type] ?? [GAME_ASSETS.gems.ruby_round];
+
+  if (simpleSkins) return currentPool[0];
+
+  return currentPool[
+    hashToIndex(gem.id, currentPool.length)
+  ];
+}, [simpleSkins, gem.type, gem.id]);
 
   const powerIcon =
     gem.power === "stripe_h"
@@ -69,7 +77,12 @@ export function GemComponent({
 
   const isPower = !!powerIcon && gem.type !== "chest";
 
-  const scale = isFlashing ? 1.12 : isSelected ? 1.04 : 1;
+  // WOW: Dinamikus skálázás (Spawn -> Flash -> Select)
+  let scale = 1;
+  if (isSpawning) scale = 1.3; 
+  else if (isFlashing) scale = 1.12;
+  else if (isSelected) scale = 1.04;
+
   const transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
 
   const dragonGlow =
@@ -96,15 +109,17 @@ export function GemComponent({
         e.stopPropagation();
         onClick();
       }}
-      className={`absolute rounded-xl overflow-hidden select-none ${isFlashing ? "br-match-flash" : ""}`}
+      className={`absolute rounded-xl overflow-hidden select-none 
+        ${isFlashing ? "br-match-flash" : ""} 
+        ${isSpawning ? "animate-bounce-short" : ""}`} // WOW: Gyors ugrás születéskor
       style={{
         width: size,
         height: size,
         touchAction: "manipulation",
         willChange: "transform, opacity, filter",
         transform,
-        transition: isFlashing
-          ? "transform 120ms ease-out, filter 120ms ease-out, opacity 120ms ease-out"
+        transition: isSpawning 
+          ? "transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275)" // Rugalmas belépés
           : "transform 180ms ease-out, filter 180ms ease-out, opacity 180ms ease-out",
       }}
     >
@@ -121,7 +136,7 @@ export function GemComponent({
           src={powerIcon!}
           alt={gem.power}
           draggable={false}
-          className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,120,120,0.45)]"
+          className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,120,120,0.45)] animate-pulse-slow" // WOW: Lassú pulzálás
         />
       )}
 
@@ -129,18 +144,21 @@ export function GemComponent({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-500/6 via-transparent to-black/8" />
       )}
 
+      {/* WOW: Spawn effekt (Fehér villanás születéskor) */}
+      {isSpawning && (
+        <div className="pointer-events-none absolute inset-0 bg-white animate-ping opacity-50 rounded-xl" />
+      )}
+
       {isFlashing && (
-  <>
-    <div className="pointer-events-none absolute inset-0 bg-white/30 animate-pulse" />
-    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-300/35 via-transparent to-red-900/25" />
-
-    <div className="pointer-events-none absolute left-1/2 top-1/2 h-3/4 w-3/4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 animate-ping" />
-
-    <div className="pointer-events-none absolute left-[18%] top-[20%] h-1.5 w-1.5 rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
-    <div className="pointer-events-none absolute right-[20%] top-[28%] h-1 w-1 rounded-full bg-red-200/90 shadow-[0_0_10px_rgba(255,120,120,0.9)]" />
-    <div className="pointer-events-none absolute bottom-[22%] left-[30%] h-1 w-1 rounded-full bg-white/75 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-  </>
-)}
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-white/30 animate-pulse" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-300/35 via-transparent to-red-900/25" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-3/4 w-3/4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 animate-ping" />
+          <div className="pointer-events-none absolute left-[18%] top-[20%] h-1.5 w-1.5 rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+          <div className="pointer-events-none absolute right-[20%] top-[28%] h-1 w-1 rounded-full bg-red-200/90 shadow-[0_0_10px_rgba(255,120,120,0.9)]" />
+          <div className="pointer-events-none absolute bottom-[22%] left-[30%] h-1 w-1 rounded-full bg-white/75 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+        </>
+      )}
 
       {!isFlashing && !isPower && gem.type !== "chest" && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-black/10" />

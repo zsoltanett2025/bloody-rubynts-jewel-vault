@@ -40,13 +40,15 @@ export function Match3Runtime(props: {
   const m = useMatch3(active);
 
   // ✅ stabil API
+  const { startNewGame, shuffleBoard } = m;
+
   const api = useMemo<Match3Api>(
-    () => ({
-      startNewGame: (lvl: number) => m.startNewGame(lvl),
-      shuffleBoard: () => m.shuffleBoard(),
-    }),
-    [m]
-  );
+  () => ({
+    startNewGame,
+    shuffleBoard,
+  }),
+  [startNewGame, shuffleBoard]
+);
 
   // ✅ adja vissza az API-t az App.tsx-nek
   useEffect(() => {
@@ -55,17 +57,16 @@ export function Match3Runtime(props: {
 
   // ✅ KULCS: mountkor + level váltáskor mindig induljon új pálya
   const lastStartedRef = useRef<number>(0);
-  useEffect(() => {
-    if (!active) return;
+ useEffect(() => {
+  if (!active) return;
 
-    const lvl = Math.max(1, Math.floor(Number(levelToStart) || 1));
+  const lvl = Math.max(1, Math.floor(Number(levelToStart) || 1));
 
-    // csak akkor indítsuk, ha tényleg új vagy most aktiváltuk
-    if (lastStartedRef.current !== lvl) {
-      lastStartedRef.current = lvl;
-      m.startNewGame(lvl);
-    }
-  }, [active, levelToStart, m]);
+  if (lastStartedRef.current !== lvl) {
+    lastStartedRef.current = lvl;
+    startNewGame(lvl);
+  }
+}, [active, levelToStart, startNewGame]);
 
   // ✅ állapot push az App.tsx felé (TopBar / end modal)
   useEffect(() => {
@@ -111,8 +112,15 @@ export function Match3Runtime(props: {
 
   return (
     <div className="relative flex items-center justify-center w-full">
+      {/* WOW: Combo Text Overlay */}
+      {m.comboText && (
+        <div className="br-combo-text animate-bounce-short">
+          {m.comboText}
+        </div>
+      )}
+
       <div
-        className="relative rounded-2xl"
+        className={`relative rounded-2xl transition-transform ${m.screenShake ? "br-board-shake" : ""}`}
         style={{
           width: boardPx,
           height: boardPx,
@@ -129,6 +137,7 @@ export function Match3Runtime(props: {
             size={tileSize}
             isSelected={!!m.selectedGem && m.selectedGem.id === g.id}
             isFlashing={m.flashIds.includes(g.id)}
+            isSpawning={g.id === m.spawnPowerId} // WOW: Átadja a születési animációt
             onClick={() => m.selectGem(g)}
             level={m.level}
           />
@@ -138,7 +147,7 @@ export function Match3Runtime(props: {
         {m.scorePops.map((p) => (
           <div
             key={p.id}
-            className="absolute text-white text-sm font-bold drop-shadow pointer-events-none"
+            className="absolute text-white text-sm font-bold drop-shadow pointer-events-none br-score-pop"
             style={{
               left: p.x * tileSize + tileSize / 2,
               top: p.y * tileSize + tileSize / 2,
