@@ -48,7 +48,7 @@ export function GemComponent({
     chest: [GAME_ASSETS.chests.purple, GAME_ASSETS.chests.blue],
   };
 
-  const pool = pools[gem.type] ?? [GAME_ASSETS.gems.ruby_round];
+  
 
   const simpleSkins = typeof level === "number" && level <= SIMPLE_SKINS_UNTIL_LEVEL;
   const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
