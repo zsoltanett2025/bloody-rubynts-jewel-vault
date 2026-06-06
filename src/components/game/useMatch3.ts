@@ -757,6 +757,7 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
 
   useEffect(() => {
     const rules = getLevelRules(level);
+    console.log("LEVEL RULES", rules);
     if (rules.challenge?.type !== "dragon") return;
     if (dragonHp > 0) return;
     if (gameOver) return;
@@ -892,9 +893,8 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
         if (combo === 2) setComboText("GREAT!");
         else if (combo === 3) setComboText("AMAZING!");
         else if (combo === 4) setComboText("UNBELIEVABLE!");
-        else if (combo >= 5) setComboText("BLOODY RUBY FEVER!");
-        window.setTimeout(() => setComboText(""), 450);
-
+        else if (combo >= 5) setComboText("BLOODY RUBY FEVER!"); 
+        window.setTimeout(() => setComboText(""), 700);
         const fxIntensity: FxIntensity = (clearedGems.length >= 12 || createPower?.power === "rainbow") 
           ? "super" 
           : combo >= 3 || clearedGems.length >= 6 ? "huge" : combo >= 2 || clearedGems.length >= 4 || !!createPower ? "big" : "normal";
@@ -942,7 +942,67 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
       processingRef.current = false;
     }
   }, [addScore, countCleared, safePlay, ensurePlayable, triggerMatchFx, addChallengeProgress, damageDragon, targetScore, applyBloodCurse]);
+     function applyCageLayout(gems: Gem[], lvl: number) {
+  const layouts: Record<number, Array<[number, number]>> = {
+    25: [
+      [2, 3], [3, 3], [4, 3],
+      [2, 4], [3, 4], [4, 4],
+    ],
+    35: [
+      [2, 2], [3, 2], [4, 2],
+      [2, 3], [3, 3], [4, 3],
+      [2, 4], [3, 4],
+    ],
+    45: [
+      [1, 3], [2, 3], [3, 3], [4, 3],
+      [1, 4], [2, 4], [3, 4], [4, 4],
+    ],
+    60: [
+      [1, 2], [2, 2], [3, 2], [4, 2],
+      [1, 3], [2, 3], [3, 3], [4, 3],
+      [1, 4], [2, 4],
+    ],
+    70: [
+      [3, 1],
+      [3, 2],
+      [2, 3], [3, 3], [4, 3],
+      [3, 4],
+      [3, 5],
+    ],
 
+    90: [
+      [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
+      [1, 2],                         [5, 2],
+      [1, 3],                         [5, 3],
+      [1, 4],                         [5, 4],
+      [1, 5], [2, 5], [3, 5], [4, 5], [5, 5],
+    ],
+
+    120: [
+      [2, 2], [3, 2], [4, 2], [5, 2],
+      [2, 3],                 [5, 3],
+      [2, 4],                 [5, 4],
+      [2, 5], [3, 5], [4, 5], [5, 5],
+    ],
+
+    150: [
+      [1, 1], [5, 1],
+      [2, 2], [4, 2],
+      [3, 3],
+      [2, 4], [4, 4],
+      [1, 5], [5, 5],
+   ],
+  };
+
+  const layout = layouts[lvl];
+  if (!layout) return;
+
+  for (const g of gems) {
+    if (layout.some(([x, y]) => g.x === x && g.y === y)) {
+      g.gridLevel = 1;
+    }
+  }
+}
   const startNewGame = useCallback((newLevel: number) => {
     const lvl = Math.max(1, Math.floor(Number(newLevel) || 1));
     setLevel(lvl);
@@ -981,23 +1041,25 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
       setDragonHp(0);
       dragonHpRef.current = 0;
     }
-    if (shardCfg) {
-      setMode("timed");
-      setTimeLimitSec(shardCfg.timeLimitSec);
-      setTimeLeftSec(shardCfg.timeLimitSec);
-      setMovesSynced(shardCfg.moveLimit + (Math.random() < 0.5 ? 0 : 1));
-    } else if (rules.timed?.seconds && rules.timed.seconds > 0) {
-      setMode("timed");
-      const sec = clamp(Math.floor(rules.timed.seconds), 150, 210);
-      setTimeLimitSec(sec);
-      setTimeLeftSec(sec);
-      setMovesSynced(clamp(rules.moves, 16, 34));
-    } else {
-      setMode("moves");
-      setTimeLimitSec(0);
-      setTimeLeftSec(0);
-      setMovesSynced(clamp(rules.moves, 12, 34));
-    }
+     if (rules.timed?.seconds && rules.timed.seconds > 0) {
+     setMode("timed");
+
+   const sec = Math.floor(Number(rules.timed.seconds) || 90);
+
+   setTimeLimitSec(sec);
+   setTimeLeftSec(sec);
+   setMovesSynced(clamp(rules.moves, 16, 34));
+ } else if (shardCfg) {
+   setMode("timed");
+   setTimeLimitSec(shardCfg.timeLimitSec);
+   setTimeLeftSec(shardCfg.timeLimitSec);
+   setMovesSynced(shardCfg.moveLimit + (Math.random() < 0.5 ? 0 : 1)); 
+ } else {
+   setMode("moves");
+   setTimeLimitSec(0);
+   setTimeLeftSec(0);
+   setMovesSynced(clamp(rules.moves, 12, 34));
+ }
     const rawTarget = rules.goal.type === "score" ? (rules.goal as any).target : 0;
     const safeTarget = Math.max(600, Math.floor(Number(rawTarget) || 0));
     setTargetScore(safeTarget);
@@ -1007,20 +1069,10 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
     const minMoves = lvl >= 11 ? 6 : 1;
     const fresh = rerollPlayable(cfg.boardSize, cfg.mask, pool, minMoves, 700);
     const clean = ensurePlayable(fresh, lvl);
-    if (lvl === 25) {
-  clean.forEach((g) => {
-    if (
-      (g.x === 2 && g.y === 3) ||
-      (g.x === 3 && g.y === 3) ||
-      (g.x === 4 && g.y === 3) ||
-      (g.x === 2 && g.y === 4) ||
-      (g.x === 3 && g.y === 4) ||
-      (g.x === 4 && g.y === 4)
-    ) {
-      g.gridLevel = 1;
-    }
-  });
-}
+
+    applyCageLayout(clean, lvl);
+
+    setGems(clean);
     setGems(clean);
     gemsRef.current = clean;
     window.setTimeout(() => {

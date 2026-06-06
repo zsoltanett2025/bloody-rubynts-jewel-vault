@@ -91,12 +91,70 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
   const moves = clamp(rawMoves + bonusMoves, 16, 27);
  if (level === 25) {
   return {
-    moves: 22,
+    moves: 20,
     goal: { type: "score", target: 1400 },
+    timed: { seconds: 90 },
     challenge: { type: "cage", count: 6 },
   };
 }
-  if (level === 10) return { moves: 16, goal: { type: "score", target: 950 }, rewards: { br: 5 }, challenge: { type: "none" } };
+
+if (level === 35) {
+  return {
+    moves: 25,
+    goal: { type: "score", target: 1700 },
+    challenge: { type: "cage", count: 8 },
+  };
+}
+
+if (level === 45) {
+  return {
+    moves: 26,
+    goal: { type: "score", target: 2000 },
+    challenge: { type: "cage", count: 8 },
+  };
+}
+
+if (level === 60) {
+  return {
+    moves: 27,
+    goal: { type: "score", target: 2400 },
+    challenge: { type: "cage", count: 10 },
+  };
+}
+
+ if (level === 70) {
+  return {
+    moves: 28,
+    goal: { type: "score", target: 2600 },
+    challenge: { type: "cage", count: 7 },
+  };
+}
+
+if (level === 90) {
+  return {
+    moves: 30,
+    goal: { type: "score", target: 3000 },
+    challenge: { type: "cage", count: 16 },
+  };
+}
+
+if (level === 120) {
+  return {
+    moves: 30,
+    goal: { type: "score", target: 3400 },
+    challenge: { type: "cage", count: 12 },
+  };
+}
+  
+if (level === 150) {
+  return {
+    moves: 28,
+    goal: { type: "score", target: 3800 },
+    challenge: { type: "cage", count: 9 },
+  };
+}
+
+if (level === 10) return { moves: 16, goal: { type: "score", target: 950 }, rewards: { br: 5 }, challenge: { type: "none" } };
   if (level % 10 === 0) return { moves: clamp(baseMoves - 1 + bonusMoves, 16, 27), goal: { type: "chest", count: 1 }, rewards: { chest: true }, challenge: { type: "none" } };
   const allowClear = level >= 15;
   if (wave === 9 && allowClear) {
