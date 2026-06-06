@@ -161,10 +161,20 @@ export function GemComponent({
       )}
 
       {!isFlashing && !isPower && gem.type !== "chest" && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-black/10" />
-      )}
+  <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-black/10" />
+)}
 
-      <div className={`absolute inset-0 rounded-xl ${selectionRing}`} />
+{gem.gridLevel && gem.gridLevel > 0 && (
+  <div className="br-gem-cage">
+    {gem.gridLevel > 1 && (
+      <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold drop-shadow">
+        {gem.gridLevel}
+      </div>
+    )}
+  </div>
+)}
+
+<div className={`absolute inset-0 rounded-xl ${selectionRing}`} />
     </button>
   );
 }

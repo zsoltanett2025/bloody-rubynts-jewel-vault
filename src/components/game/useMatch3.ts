@@ -58,6 +58,7 @@ type ChallengeProgress = {
   bombsUsed: number;
   rainbowsUsed: number;
   rainbowsCreated: number;
+  cagesCleared: number;
 };
 
 type GoalProgress = {
@@ -217,7 +218,7 @@ const generateRandomGem = (
       ? undefined
       : rollSpawnPower(assist?.level ?? 1, !!assist?.helpMode, assist?.movesLeft ?? 99);
   
-  const gridLevel = (assist?.level && assist.level >= 20 && Math.random() < 0.15) ? 2 : undefined;
+  const gridLevel = undefined;
 
   return { id: newId(), type, power, x, y, gridLevel };
 };
@@ -414,6 +415,8 @@ function isChallengeMet(challenge: any, progress: GoalProgress, dragonHp: number
     case "bomb_collect": return (progress.challenge?.bombsUsed ?? 0) >= challenge.count;
     case "rainbow_focus": return (progress.challenge?.rainbowsUsed ?? 0) + (progress.challenge?.rainbowsCreated ?? 0) >= challenge.count;
     case "dragon": return dragonHp <= 0;
+    case "cage":
+      return (progress.challenge?.cagesCleared ?? 0) >= challenge.count;
     default: return true;
   }
 }
@@ -639,10 +642,10 @@ export const useMatch3 = (active: boolean = true) => {
     setDragonJustHit(dragonHp < dragonHpRef.current);
   }, [dragonHp]);
   const [progress, setProgress] = useState<GoalProgress>({
-    score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0 },
+    score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0, cagesCleared: 0 }
   });
   const progressRef = useRef<GoalProgress>({
-    score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0 },
+    score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0, cagesCleared: 0 }
   });
   useEffect(() => { progressRef.current = progress; }, [progress]);
   const [flashIds, setFlashIds] = useState<string[]>([]);
@@ -717,7 +720,9 @@ export const useMatch3 = (active: boolean = true) => {
     const bombsUsed = Math.max(0, Math.floor(Number(delta.bombsUsed) || 0));
     const rainbowsUsed = Math.max(0, Math.floor(Number(delta.rainbowsUsed) || 0));
     const rainbowsCreated = Math.max(0, Math.floor(Number(delta.rainbowsCreated) || 0));
-    if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0) return;
+    const cagesCleared = Math.max(0, Math.floor(Number(delta.cagesCleared) || 0));
+
+if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared <= 0) return;
     setProgress((p) => {
       const next: GoalProgress = {
         ...p,
@@ -725,6 +730,7 @@ export const useMatch3 = (active: boolean = true) => {
           bombsUsed: (p.challenge?.bombsUsed ?? 0) + bombsUsed,
           rainbowsUsed: (p.challenge?.rainbowsUsed ?? 0) + rainbowsUsed,
           rainbowsCreated: (p.challenge?.rainbowsCreated ?? 0) + rainbowsCreated,
+          cagesCleared: (p.challenge?.cagesCleared ?? 0) + cagesCleared,
         },
       };
       progressRef.current = next;
@@ -845,10 +851,20 @@ export const useMatch3 = (active: boolean = true) => {
         if (createPower?.power === "rainbow") addChallengeProgress({ rainbowsCreated: 1 });
 
         const matchIds = new Set(matches.map((g) => g.id));
+
         if (createPower) {
-          matchIds.delete(createPower.keepId);
-          activeGems = activeGems.map((g) => g.id === createPower.keepId ? { ...g, power: createPower.power } : g);
+           matchIds.delete(createPower.keepId);
+           activeGems = activeGems.map((g) =>
+            g.id === createPower.keepId ? { ...g, power: createPower.power } : g
+          );
         }
+
+      // FIX: meglévő bombák / rainbow / striped ne tűnjenek el sima match miatt
+     for (const g of activeGems) {
+        if (matchIds.has(g.id) && g.power) {
+          matchIds.delete(g.id);
+       }
+     }
 
         const actualClearIds = new Set<string>();
         activeGems = activeGems.map(g => {
@@ -865,6 +881,10 @@ export const useMatch3 = (active: boolean = true) => {
         expandClearIdsByPowers(activeGems, size, m, actualClearIds);
 
         const clearedGems = activeGems.filter((g) => actualClearIds.has(g.id));
+        const clearedCages = clearedGems.filter((g) => (g.gridLevel ?? 0) > 0).length;
+        if (clearedCages > 0) {
+          addChallengeProgress({ cagesCleared: clearedCages });
+        }
         const baseScore = clearedGems.length * 10 * combo;
         const comboBonus = combo >= 2 ? 15 * combo : 0;
         const matchScore = baseScore + comboBonus;
@@ -981,12 +1001,26 @@ export const useMatch3 = (active: boolean = true) => {
     const rawTarget = rules.goal.type === "score" ? (rules.goal as any).target : 0;
     const safeTarget = Math.max(600, Math.floor(Number(rawTarget) || 0));
     setTargetScore(safeTarget);
-    const resetProgress: GoalProgress = { score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0 } };
+    const resetProgress: GoalProgress = { score: 0, chests: 0, cleared: {}, challenge: { bombsUsed: 0, rainbowsUsed: 0, rainbowsCreated: 0, cagesCleared: 0 } };
     setProgress(resetProgress);
     progressRef.current = resetProgress;
     const minMoves = lvl >= 11 ? 6 : 1;
     const fresh = rerollPlayable(cfg.boardSize, cfg.mask, pool, minMoves, 700);
     const clean = ensurePlayable(fresh, lvl);
+    if (lvl === 25) {
+  clean.forEach((g) => {
+    if (
+      (g.x === 2 && g.y === 3) ||
+      (g.x === 3 && g.y === 3) ||
+      (g.x === 4 && g.y === 3) ||
+      (g.x === 2 && g.y === 4) ||
+      (g.x === 3 && g.y === 4) ||
+      (g.x === 4 && g.y === 4)
+    ) {
+      g.gridLevel = 1;
+    }
+  });
+}
     setGems(clean);
     gemsRef.current = clean;
     window.setTimeout(() => {
@@ -1064,6 +1098,10 @@ export const useMatch3 = (active: boolean = true) => {
     }
     if (clearIds.size === 0) { setArmedBooster(null); return; }
     const cleared = current.filter((gg) => clearIds.has(gg.id));
+    const clearedCages = cleared.filter((g) => (g.gridLevel ?? 0) > 0).length;
+    if (clearedCages > 0) {
+      addChallengeProgress({ cagesCleared: clearedCages });
+}
     const chestHits = cleared.filter((gg) => gg.type === "chest").length;
     const normalHits = cleared.filter((gg) => gg.type !== "chest");
     const boosterScore = normalHits.length * 12 + chestHits * 500 + (booster === "rainbow" ? 120 : booster === "striped" ? 60 : 40);
@@ -1219,6 +1257,10 @@ export const useMatch3 = (active: boolean = true) => {
         expandClearIdsByPowers(swapped, size, m, clearIds);
       }
       const cleared = swapped.filter((gg) => clearIds.has(gg.id));
+      const clearedCages = cleared.filter((g) => (g.gridLevel ?? 0) > 0).length;
+      if (clearedCages > 0) {
+        addChallengeProgress({ cagesCleared: clearedCages });
+      }
       const powerSwapScore = cleared.length * 12 + (powers.includes("rainbow") ? 90 : powers.includes("bomb") ? 45 : 30);
       const powerSwapIntensity: FxIntensity = powers.includes("rainbow") || clearIds.size >= 8 ? "super" : "huge";
       triggerMatchFx(Array.from(clearIds), buildMatchPops(cleared, powers.includes("rainbow") ? 3 : 2, powerSwapScore), powerSwapIntensity);

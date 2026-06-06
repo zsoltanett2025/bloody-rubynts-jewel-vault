@@ -11,6 +11,10 @@ export type SoundKey =
   | "sfx_win"
   | "sfx_defeat"
   | "sfx_booster"
+  | "sfx_bomb"
+  | "sfx_mega_bomb"
+  | "sfx_stripe_h"
+  | "sfx_stripe_v"
   | "music_main"
   | "music_menu";
 
@@ -28,7 +32,10 @@ export const SOUND_PACKS: Record<SoundPackId, Record<SoundKey, string>> = {
     sfx_click: p("assets/audio/sfx/click.mp3"),
     sfx_combo: p("assets/audio/sfx/combo.mp3"),
     sfx_defeat: p("assets/audio/sfx/defeat.mp3"),
-
+    sfx_bomb: p("assets/audio/sfx/bomb.mp3"),
+    sfx_mega_bomb: p("assets/audio/sfx/mega_bomb.mp3"),
+    sfx_stripe_h: p("assets/audio/sfx/stripe_h.mp3"),
+    sfx_stripe_v: p("assets/audio/sfx/stripe_v.mp3"),
     // ha nincs külön menü zene fájl, ideiglenesen használd a main-t:
     music_menu: p("assets/audio/A/music.mp3"),
   },
@@ -45,6 +52,10 @@ export const SOUND_PACKS: Record<SoundPackId, Record<SoundKey, string>> = {
     sfx_combo: p("assets/audio/sfx/combo.mp3"),
     sfx_defeat: p("assets/audio/sfx/defeat.mp3"),
 
+    sfx_bomb: p("assets/audio/sfx/bomb.mp3"),
+    sfx_mega_bomb: p("assets/audio/sfx/mega_bomb.mp3"),
+    sfx_stripe_h: p("assets/audio/sfx/stripe_h.mp3"),
+    sfx_stripe_v: p("assets/audio/sfx/stripe_v.mp3"),
     music_menu: p("assets/audio/A/music.mp3"),
   },
 };

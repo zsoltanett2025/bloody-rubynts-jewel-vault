@@ -9,7 +9,13 @@ export type LevelChallenge =
   | { type: "lava"; intensity: 1 | 2 | 3 }
   | { type: "bomb_collect"; count: number }
   | { type: "rainbow_focus"; count: number }
-  | { type: "dragon"; hp: number };
+  | { type: "dragon"; hp: number }
+  | { type: "cage"; count: number }
+  | {
+    type: "cage";
+    hits: 1 | 2;
+    pattern: "small_cluster" | "bottom_row" | "border";
+  };
 
 export type LevelRules = {
   level: number;
@@ -83,6 +89,13 @@ function trainingWave(level: number): Omit<LevelRules, "level"> {
   const bonusMoves = level >= 15 && level <= 30 ? 4 : 0;
   const rawMoves = baseMoves + waveDelta;
   const moves = clamp(rawMoves + bonusMoves, 16, 27);
+ if (level === 25) {
+  return {
+    moves: 22,
+    goal: { type: "score", target: 1400 },
+    challenge: { type: "cage", count: 6 },
+  };
+}
   if (level === 10) return { moves: 16, goal: { type: "score", target: 950 }, rewards: { br: 5 }, challenge: { type: "none" } };
   if (level % 10 === 0) return { moves: clamp(baseMoves - 1 + bonusMoves, 16, 27), goal: { type: "chest", count: 1 }, rewards: { chest: true }, challenge: { type: "none" } };
   const allowClear = level >= 15;

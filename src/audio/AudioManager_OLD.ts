@@ -5,7 +5,17 @@ import { SOUND_PACKS, type SoundKey, type SoundPackId } from "./soundpacks";
  * Ezt hívja a játék:
  * playSound("click" | "match" | "combo" | "win" | "defeat" | "booster")
  */
-export type SfxName = "click" | "match" | "combo" | "win" | "defeat" | "booster"  ;
+export type SfxName =
+  | "click"
+  | "match"
+  | "combo"
+  | "win"
+  | "defeat"
+  | "booster"
+  | "bomb"
+  | "mega_bomb"
+  | "stripe_h"
+  | "stripe_v";
 
 type AudioState = {
   unlocked: boolean;
@@ -56,6 +66,11 @@ const SFX_MAP: Record<SfxName, Exclude<SoundKey, "music_main">> = {
   win: "sfx_win",
   defeat: "sfx_defeat",
   booster: "sfx_booster",
+
+  bomb: "sfx_bomb",
+  mega_bomb: "sfx_mega_bomb",
+  stripe_h: "sfx_stripe_h",
+  stripe_v: "sfx_stripe_v",
 };
 
 class AudioManager {
