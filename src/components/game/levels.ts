@@ -194,6 +194,8 @@ if (level === 300) {
   };
 }
 
+
+
 if (level === 10) return { moves: 16, goal: { type: "score", target: 950 }, rewards: { br: 5 }, challenge: { type: "none" } };
   if (level % 10 === 0) return { moves: clamp(baseMoves - 1 + bonusMoves, 16, 27), goal: { type: "chest", count: 1 }, rewards: { chest: true }, challenge: { type: "none" } };
   const allowClear = level >= 15;
@@ -270,7 +272,44 @@ if (L === 300) {
     challenge: { type: "cage", count: 7 },
   };
 }
-  let challenge: LevelChallenge = { type: "none" };
+  
+if (L === 350) {
+  return {
+    moves: 34,
+    goal: { type: "chest", count: 1 },
+    timed: { seconds: 180 },
+    challenge: { type: "cage", count: 6 },
+  };
+}
+
+if (L === 400) {
+  return {
+    moves: 34,
+    goal: { type: "chest", count: 1 },
+    timed: { seconds: 180 },
+    challenge: { type: "cage", count: 8 },
+  };
+}
+
+if (L === 450) {
+  return {
+    moves: 35,
+    goal: { type: "chest", count: 1 },
+    timed: { seconds: 180 },
+    challenge: { type: "cage", count: 8 },
+  };
+}
+
+if (L === 500) {
+  return {
+    moves: 36,
+    goal: { type: "chest", count: 1 },
+    timed: { seconds: 180 },
+    challenge: { type: "cage", count: 8 },
+  };
+}
+
+let challenge: LevelChallenge = { type: "none" };
   
   if (L >= 261) {
     if ((L - 261) % 14 === 0) {

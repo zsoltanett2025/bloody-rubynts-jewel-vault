@@ -868,24 +868,33 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
      }
 
         const actualClearIds = new Set<string>();
-        activeGems = activeGems.map(g => {
-          if (matchIds.has(g.id)) {
-            if (g.gridLevel && g.gridLevel > 1) {
-              return { ...g, gridLevel: g.gridLevel - 1 };
-            }
-            actualClearIds.add(g.id);
-            return g;
-          }
-          return g;
-        });
+        let cageHits = 0;
+
+activeGems = activeGems.map((g): Gem => {
+  if (matchIds.has(g.id)) {
+    if ((g.gridLevel ?? 0) > 0) {
+      cageHits += 1;
+    }
+
+    if ((g.gridLevel ?? 0) > 1) {
+      return { ...g, gridLevel: (g.gridLevel ?? 0) - 1 };
+    }
+
+    actualClearIds.add(g.id);
+  }
+
+  return g;
+});
+
+if (cageHits > 0) {
+  addChallengeProgress({ cagesCleared: cageHits });
+}
+        
 
         expandClearIdsByPowers(activeGems, size, m, actualClearIds);
 
         const clearedGems = activeGems.filter((g) => actualClearIds.has(g.id));
-        const clearedCages = clearedGems.filter((g) => (g.gridLevel ?? 0) > 0).length;
-        if (clearedCages > 0) {
-          addChallengeProgress({ cagesCleared: clearedCages });
-        }
+        
         const baseScore = clearedGems.length * 10 * combo;
         const comboBonus = combo >= 2 ? 15 * combo : 0;
         const matchScore = baseScore + comboBonus;
@@ -1024,6 +1033,30 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
       [1, 4], [2, 4], [3, 4],
    ],
  
+    350: [
+      [2, 2], [3, 2], [4, 2],
+      [2, 3], [3, 3], [4, 3],
+   ],
+
+    400: [
+      [1, 2], [2, 2], [3, 2],
+      [1, 3],
+      [3, 3],
+      [1, 4], [2, 4], [3, 4],
+   ],
+
+    450: [
+      [1, 1], [2, 1], [3, 1],
+      [1, 2],
+      [3, 2],
+      [1, 3], [2, 3], [3, 3],
+   ],
+
+    500: [
+      [2, 2], [3, 2], [4, 2],
+      [2, 3],         [4, 3],
+      [2, 4], [3, 4], [4, 4],
+   ],
    };
 
   const layout = layouts[lvl];
@@ -1031,7 +1064,7 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
 
   for (const g of gems) {
     if (layout.some(([x, y]) => g.x === x && g.y === y)) {
-      g.gridLevel = lvl >= 180 ? 2 : 1;
+      g.gridLevel = lvl >= 350 ? 2 : lvl >= 180 ? 2 : 1;
     }
   }
 }
@@ -1182,10 +1215,7 @@ if (bombsUsed <= 0 && rainbowsUsed <= 0 && rainbowsCreated <= 0 && cagesCleared 
     }
     if (clearIds.size === 0) { setArmedBooster(null); return; }
     const cleared = current.filter((gg) => clearIds.has(gg.id));
-    const clearedCages = cleared.filter((g) => (g.gridLevel ?? 0) > 0).length;
-    if (clearedCages > 0) {
-      addChallengeProgress({ cagesCleared: clearedCages });
-}
+    
     const chestHits = cleared.filter((gg) => gg.type === "chest").length;
     const normalHits = cleared.filter((gg) => gg.type !== "chest");
     const boosterScore = normalHits.length * 12 + chestHits * 500 + (booster === "rainbow" ? 120 : booster === "striped" ? 60 : 40);
