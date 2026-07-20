@@ -111,7 +111,7 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
                 </span>
               </div>
               <div className="text-xs text-white/45 mt-2">
-                Polygon may be used for possible future wallet features. Withdrawals are not currently active.
+                Wallet connection is available for identity testing only. External transfers are unavailable.
               </div>
             </div>
             <div className="flex gap-2 mt-3">
@@ -143,19 +143,19 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
         )}
 
         <div className="mt-4 pt-4 border-t border-white/10">
-          <div className="font-semibold">Withdraw to Wallet</div>
+          <div className="font-semibold">External Transfers</div>
           <div className="inline-block mt-2 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-200">
-            Coming Soon
+            Currently Unavailable
           </div>
           <p className="mt-3 text-xs leading-5 text-white/55">
-            Wallet withdrawals are not currently active. Game points do not guarantee any future token allocation, monetary value, exchange rate or withdrawal eligibility. Features and conditions may change during development.
+            BR Game Points are currently intended for in-game use only. External transfers, redemption, monetary value and withdrawal are not currently offered.
           </p>
           <button
             type="button"
             disabled
             className="mt-2 w-full rounded-xl bg-white/10 py-3 font-semibold text-white/45 cursor-not-allowed"
           >
-            Withdrawals unavailable
+            Unavailable
           </button>
         </div>
       </div>
