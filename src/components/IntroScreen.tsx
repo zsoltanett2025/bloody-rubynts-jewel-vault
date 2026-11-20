@@ -90,13 +90,13 @@ export function IntroScreen({ onContinue }: IntroScreenProps) {
                   • <b>Shard Hunt:</b> find broken Rubynt fragments hidden across special levels.
                 </li>
                 <li>
-                  • <b>Treasure Chests:</b> random rewards may include small BR coin drops and bonus items.
+                  • <b>Treasure Chests:</b> may contain BR coins, boosters and bonus items.
                 </li>
                 <li>
-                  • <b>Weekly / Daily streak rewards</b> for consistent play (seasonal campaigns).
+                  • <b>Daily reward track:</b> collect BR coins and boosters for playing regularly.
                 </li>
                 <li>
-                  • <b>Two purchase paths:</b> items can be bought with normal currency or with <b>BR coin</b> (often cheaper in BR).
+                  • <b>In-game shop:</b> spend the BR coins you collect on boosters and items.
                 </li>
                 <li>
                   • <b>Boosters:</b> extra moves, shuffle, bombs, and more—earned or purchased.
@@ -108,13 +108,13 @@ export function IntroScreen({ onContinue }: IntroScreenProps) {
 
               {/* Terms summary */}
               <h3 className="text-white font-semibold tracking-wide text-[14px] sm:text-[15px]">
-                Reward terms (summary)
+                About BR coins
               </h3>
 
               <p className="mt-3 text-white/70 text-[12px] sm:text-[13px] leading-relaxed">
-                Rewards are <b>seasonal</b> and may change over time. BR coin amounts are not fixed and
-                can depend on campaign rules and market price. We may limit rewards to protect fairness,
-                prevent abuse, and keep the economy stable. By continuing you confirm you understand this.
+                BR coins are an <b>in-game currency</b> that you collect while playing and can spend in the
+                in-game shop. They have no monetary value and cannot be withdrawn, transferred, sold or
+                exchanged. Game features and bonuses may change over time.
               </p>
 
               <p className="mt-3 text-white/60 text-[12px] sm:text-[13px] leading-relaxed">
@@ -139,17 +139,17 @@ export function IntroScreen({ onContinue }: IntroScreenProps) {
                 transition
               "
             >
-              ✅ I AGREE & CONTINUE
+              ▶ PLAY
             </button>
 
             <div className="mt-3 text-xs sm:text-sm text-white/60">
-              By continuing, you agree to the rules and reward terms.
+              Have fun in the Bloody Rubynt world!
             </div>
           </div>
         </div>
 
         <div className="mt-4 text-[11px] sm:text-xs text-white/45">
-          First comes the experience — the rewards follow.
+          First comes the experience.
         </div>
       </div>
     </div>
