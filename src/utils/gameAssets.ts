@@ -1,3 +1,5 @@
+import { GEM_ART_V2 } from "./gemArtV2";
+
 const BASE = import.meta.env.BASE_URL;
 const u = (p: string) => `${BASE}${p.replace(/^\/+/, "")}`;
 
@@ -119,11 +121,12 @@ export const GAME_ASSETS = {
  * each with its own colour AND shape. Code names are unchanged, so game
  * logic and saved progress are not affected. Used by the board and the
  * level-goal icon so both always show the same picture.
+ * BR-JV-P1a: pictures switched to the new vector art (GEM_ART_V2).
  */
 export const GEM_SKIN: Record<string, string> = {
-  ruby: GAME_ASSETS.gems.ruby_round, // red, round faceted
-  blood: GAME_ASSETS.gems.amethyst_cushion, // yellow, star (file name is legacy)
-  amethyst: GAME_ASSETS.gems.ruby_purple, // purple, square (file name is legacy)
-  onyx: GAME_ASSETS.gems.onyx_round, // blue, hexagon
-  silver: GAME_ASSETS.gems.emerald_round, // green, triangle
+  ruby: GEM_ART_V2.ruby, // red, round faceted
+  blood: GEM_ART_V2.blood, // yellow topaz, star
+  amethyst: GEM_ART_V2.amethyst, // purple, square cushion
+  onyx: GEM_ART_V2.onyx, // blue sapphire, hexagon
+  silver: GEM_ART_V2.silver, // green emerald, triangle
 };
