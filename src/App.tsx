@@ -8,7 +8,7 @@ import { useGame } from "./components/game/GameState";
 import { LevelMap } from "./components/game/LevelMap";
 import { WalletModal } from "./components/game/WalletModal";
 import { ShopModal } from "./components/game/ShopModal";
-import { GAME_ASSETS } from "./utils/gameAssets";
+import { GAME_ASSETS, GEM_SKIN } from "./utils/gameAssets";
 import { TopBar } from "./components/game/TopBar";
 import { assetUrl } from "./utils/assetUrl";
 import { StoryOverlay } from "./components/game/StoryOverlay";
@@ -194,14 +194,7 @@ function getObjectiveIcon(rules: LevelRules): string {
   }
 
   if (rules.goal.type === "clear") {
-    const gemMap: Record<string, string> = {
-      ruby: GAME_ASSETS.gems.ruby_round,
-      blood: GAME_ASSETS.gems.blood_drop,
-      amethyst: GAME_ASSETS.gems.amethyst_oval,
-      onyx: GAME_ASSETS.gems.onyx_round,
-      silver: GAME_ASSETS.gems.emerald_round,
-    };
-    return gemMap[rules.goal.gem] ?? GAME_ASSETS.gems.ruby_round;
+    return GEM_SKIN[rules.goal.gem] ?? GAME_ASSETS.gems.ruby_round;
   }
 
   return GAME_ASSETS.gems.ruby_round;
