@@ -21,7 +21,7 @@ import confetti from "canvas-confetti";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoginPage as LoginPageComp } from "./pages/LoginPage";
 import { useAuth } from "./app/auth/AuthProvider";
-import { LevelPortalTransition } from "./components/game/LevelPortalTransition";
+import { SimpleLevelTransition } from "./components/game/SimpleLevelTransition";
 import { useMatch3 } from "./components/game/useMatch3";
 import { GemComponent } from "./components/game/GemComponent";
 import { DailyChestModal } from "./components/daily/DailyChestModal";
@@ -285,6 +285,7 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
   const [showPortalTransition, setShowPortalTransition] = useState(false);
+  const [transitionLevel, setTransitionLevel] = useState(1);
 
   const [showShards, setShowShards] = useState(false);
   const [shardsFoundLevels, setShardsFoundLevels] = useState<number[]>(() =>
@@ -781,6 +782,8 @@ useEffect(() => {
 
     endActionLockRef.current = true;
     setEndOpen(false);
+    // BR-JV-PTRANS: short and simple level change
+    setTransitionLevel(next);
     setShowPortalTransition(true);
 
     setUnlockedLevel((u: number) => Math.max(clampLevel(u), next));
@@ -793,15 +796,15 @@ useEffect(() => {
 
       lastStartedRef.current = 0;
       setScreen("game");
-    }, 1200);
+    }, 350);
 
     window.setTimeout(() => {
       setShowPortalTransition(false);
-    }, 1800);
+    }, 800);
 
     window.setTimeout(() => {
       endActionLockRef.current = false;
-    }, 2200);
+    }, 1100);
   }, [m3.level]);
 
   if (isLoading) {
@@ -1319,10 +1322,9 @@ useEffect(() => {
         </div>
       )}
 
-      <LevelPortalTransition
+      <SimpleLevelTransition
         open={showPortalTransition}
-        level={m3.level}
-        nextLevel={clampLevel(m3.level + 1)}
+        level={transitionLevel}
       />
 
       {story && (
