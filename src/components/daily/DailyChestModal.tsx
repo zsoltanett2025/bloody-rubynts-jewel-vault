@@ -159,10 +159,10 @@ export function DailyChestModal(props: {
 
   const chestClosed =
     props.chestClosedSrc ||
-    `${import.meta.env.BASE_URL}assets/ui/ruby_chest_closed.png`;
+    `${import.meta.env.BASE_URL}assets/ui/ruby_chest_closed.webp`;
   const chestOpen =
     props.chestOpenSrc ||
-    `${import.meta.env.BASE_URL}assets/ui/ruby_chest_open.png`;
+    `${import.meta.env.BASE_URL}assets/ui/ruby_chest_open.webp`;
 
   const [phase, setPhase] = useState<
     "idle" | "shuffling" | "choose" | "reveal" | "claimed"
