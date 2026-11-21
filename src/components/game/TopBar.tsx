@@ -156,7 +156,7 @@ export function TopBar(props: {
     return Math.max(0, Math.min(100, (timeLeftSec / timeLimitSec) * 100));
   }, [mode, timeLeftSec, timeLimitSec]);
 
-  const dailyIconSrc = `${import.meta.env.BASE_URL}assets/ui/ruby_chest_closed.png`;
+  const dailyIconSrc = `${import.meta.env.BASE_URL}assets/ui/ruby_chest_closed.webp`;
   const hasObjective = Boolean(objectiveTitle || objectiveText || objectiveIcon);
 
   const dragonPct = useMemo(() => {
@@ -260,7 +260,7 @@ export function TopBar(props: {
                 title="Shuffle"
               >
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
+                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.webp`}
                   alt="shuffle"
                   draggable={false}
                   className="w-full h-full object-contain pointer-events-none p-0.5"
@@ -431,7 +431,7 @@ export function TopBar(props: {
                 title="Shuffle"
               >
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.png`}
+                  src={`${import.meta.env.BASE_URL}assets/ui/shuffle.webp`}
                   alt="shuffle"
                   draggable={false}
                   className="w-full h-full object-contain pointer-events-none p-0.5"
