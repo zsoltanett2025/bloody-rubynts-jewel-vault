@@ -114,3 +114,16 @@ export const GAME_ASSETS = {
     },
   },
 } as const;
+/**
+ * Phase 0 readability fix (BR-JV-P0): exactly ONE picture per gem type,
+ * each with its own colour AND shape. Code names are unchanged, so game
+ * logic and saved progress are not affected. Used by the board and the
+ * level-goal icon so both always show the same picture.
+ */
+export const GEM_SKIN: Record<string, string> = {
+  ruby: GAME_ASSETS.gems.ruby_round, // red, round faceted
+  blood: GAME_ASSETS.gems.amethyst_cushion, // yellow, star (file name is legacy)
+  amethyst: GAME_ASSETS.gems.ruby_purple, // purple, square (file name is legacy)
+  onyx: GAME_ASSETS.gems.onyx_round, // blue, hexagon
+  silver: GAME_ASSETS.gems.emerald_round, // green, triangle
+};
