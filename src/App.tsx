@@ -40,6 +40,7 @@ const LS_SEEN_INTRO = "br_seenIntro";
 const LS_SEEN_WELCOME = "br_seenWelcome";
 const LS_INF_LIFE_UNTIL = "br_infinite_life_until_v1";
 const LS_SHARDS_FOUND = "br_shards_found_levels_v1";
+const LS_LEVEL_STARS = "br_level_stars_v1"; // BR-JV-MAP: best stars per level
 
 const SHARD_LEVELS = [
   67, 134, 201, 268, 335, 402, 469, 536, 603, 670, 737, 804, 871, 938, 1000,
@@ -148,6 +149,30 @@ function readShardsFoundFromStorage(): number[] {
   } catch {
     return [];
   }
+}
+
+function readLevelStarsFromStorage(): Record<number, number> {
+  try {
+    const raw = localStorage.getItem(LS_LEVEL_STARS);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return {};
+    const out: Record<number, number> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const lvl = Number(k);
+      const st = Math.max(0, Math.min(3, Math.floor(Number(v))));
+      if (Number.isFinite(lvl) && lvl > 0 && st > 0) out[lvl] = st;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeLevelStarsToStorage(stars: Record<number, number>) {
+  try {
+    localStorage.setItem(LS_LEVEL_STARS, JSON.stringify(stars));
+  } catch {}
 }
 
 function writeShardsFoundToStorage(levels: number[]) {
@@ -284,6 +309,7 @@ const MainGame = ({ onLogout }: { onLogout: () => void }) => {
   const [endOpen, setEndOpen] = useState(false);
   const [endStars, setEndStars] = useState(0);
   const [endWon, setEndWon] = useState(false);
+  const [levelStars, setLevelStars] = useState<Record<number, number>>(() => readLevelStarsFromStorage());
   const [showPortalTransition, setShowPortalTransition] = useState(false);
   const [transitionLevel, setTransitionLevel] = useState(1);
 
@@ -739,6 +765,16 @@ useEffect(() => {
     const passed = dragonWon ? true : m3.passed;
     setEndWon(passed);
     setEndStars(starsNow);
+    if (passed && starsNow > 0) {
+      // BR-JV-MAP: remember the best stars for the level map
+      const lvlDone = m3.level;
+      setLevelStars((prev) => {
+        if ((prev[lvlDone] ?? 0) >= starsNow) return prev;
+        const next = { ...prev, [lvlDone]: Math.min(3, starsNow) };
+        writeLevelStarsToStorage(next);
+        return next;
+      });
+    }
     setEndOpen(true);
   }, [screen, levelRules.challenge, m3.level, m3.mode, m3.timeLeftSec, m3.moves, m3.passed, starsNow]);
 
@@ -902,6 +938,7 @@ useEffect(() => {
                 totalLevels={TOTAL_LEVELS}
                 currentLevel={currentLevel}
                 unlockedLevel={unlockedLevel}
+                levelStars={levelStars}
                 onSelectLevel={(l: number) => {
                   const L = typeof lives === "number" ? lives : 3;
                   if (L <= 0) {
