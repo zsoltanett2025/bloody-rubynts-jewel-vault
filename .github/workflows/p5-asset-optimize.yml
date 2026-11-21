@@ -1,0 +1,183 @@
+# BR-JV-P5 (approved by owner 2026-11-21): one-time asset clean-up and compression.
+# Runs only when this file is pushed to branch br-jv-p5-cleanup. It will be deleted after it has run.
+name: BR-JV-P5 asset optimize (one-time)
+
+on:
+  push:
+    branches: [ "br-jv-p5-cleanup" ]
+    paths: [ ".github/workflows/p5-asset-optimize.yml" ]
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: br-jv-p5-cleanup
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y webp ffmpeg
+
+      - name: Delete approved unused files
+        run: |
+          set -e
+          files=(
+            "public/assets/audio/music/music_boss_23.mp3"
+            "public/assets/audio/music/music_boss_24.mp3"
+            "public/assets/audio/music/music_boss_25.mp3"
+            "public/assets/audio/music/music_game.mp3"
+            "public/assets/audio/music/music_map.mp3"
+            "public/assets/backgrounds/map/dragons/bragon_ice.png"
+            "public/assets/backgrounds/map/dragons/dragon_fire.png"
+            "public/assets/backgrounds/map/dragons/dragon_shadow.png"
+            "public/assets/backgrounds/map/gnomes/gnome_01.png"
+            "public/assets/backgrounds/map/gnomes/gnome_02.png"
+            "public/assets/backgrounds/map/gnomes/gnome_03.png"
+            "public/assets/backgrounds/map/icons/icon_01.png"
+            "public/assets/backgrounds/map/ruby/cracked_ruby.png"
+            "public/assets/backgrounds/shard/shard_bg_01.png"
+            "public/assets/backgrounds/shard/shard_bg_02.png"
+            "public/assets/backgrounds/shard/shard_bg_03.png"
+            "public/assets/backgrounds/shard/shard_bg_04.png"
+            "public/assets/backgrounds/shard/shard_bg_05.png"
+            "public/assets/backgrounds/shard/shard_bg_06.png"
+            "public/assets/backgrounds/shard/shard_bg_07.png"
+            "public/assets/backgrounds/shard/shard_bg_08.png"
+            "public/assets/backgrounds/shard/shard_bg_09.png"
+            "public/assets/backgrounds/shard/shard_bg_10.png"
+            "public/assets/backgrounds/shard/shard_bg_11.png"
+            "public/assets/backgrounds/shard/shard_bg_12.png"
+            "public/assets/backgrounds/shard/shard_bg_13.png"
+            "public/assets/backgrounds/shard/shard_bg_14.png"
+            "public/assets/backgrounds/shard/shard_bg_15.png"
+            "public/assets/chests/chest_blue_v01.png"
+            "public/assets/chests/chest_purple_v01.png"
+            "public/assets/gems/amethyst_cushion_v01.png"
+            "public/assets/gems/amethyst_oval_v01.png"
+            "public/assets/gems/blood_drop_v01.png"
+            "public/assets/gems/emerald_round_v01.png"
+            "public/assets/gems/onyx_round_v01.png"
+            "public/assets/gems/red_diamond_v01.png"
+            "public/assets/gems/ruby_cushion_v01.png"
+            "public/assets/gems/ruby_heart_v01.png"
+            "public/assets/gems/ruby_oval_v01.png"
+            "public/assets/gems/ruby_pear_v01.png"
+            "public/assets/gems/ruby_purple_v01.png"
+            "public/assets/gems/ruby_round_v01.png"
+            "public/assets/objectives/objective_dragon_caged_04.png"
+            "public/assets/powerups/bomb_3x3.png"
+            "public/assets/powerups/bomb_rainbow.png"
+            "public/assets/powerups/stripe_horizontal.png"
+            "public/assets/powerups/stripe_vertical.png"
+            "public/assets/references/levels_sheet_001.png"
+            "public/assets/references/levels_sheet_002.png"
+            "public/assets/references/levels_sheet_003.png"
+            "public/assets/references/levels_sheet_004.png"
+            "public/assets/references/levels_sheet_005.png"
+            "public/assets/references/levels_sheet_006.png"
+            "public/assets/references/levels_sheet_007.jpg"
+            "public/assets/references/levels_sheet_008.jpg"
+            "public/assets/references/levels_sheet_009.jpg"
+            "public/assets/references/levels_sheet_010.jpg"
+            "public/assets/references/levels_sheet_011.jpg"
+            "public/assets/ui/bolt.png"
+            "public/assets/ui/ui_menu_bg_.png"
+            "public/assets/ui/ui_splash_01.png"
+          )
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then git rm -q "$f"; echo "deleted $f"; else echo "missing $f"; fi
+          done
+          if [ -f src/audio/AudioManager_OLD.ts ]; then git rm -q src/audio/AudioManager_OLD.ts; echo "deleted AudioManager_OLD.ts"; fi
+
+      - name: Convert images to WebP
+        run: |
+          set -e
+          items=(
+            "public/assets/backgrounds/bg_001.png|0"
+            "public/assets/backgrounds/bg_002.png|0"
+            "public/assets/backgrounds/bg_003.png|0"
+            "public/assets/backgrounds/bg_004.png|0"
+            "public/assets/backgrounds/bg_005.png|0"
+            "public/assets/backgrounds/bg_006.png|0"
+            "public/assets/backgrounds/bg_007.png|0"
+            "public/assets/backgrounds/bg_008.png|0"
+            "public/assets/backgrounds/bg_009.png|0"
+            "public/assets/backgrounds/bg_010.png|0"
+            "public/assets/backgrounds/bg_011.png|0"
+            "public/assets/backgrounds/bg_012.png|0"
+            "public/assets/backgrounds/bg_013.png|0"
+            "public/assets/backgrounds/bg_014.png|0"
+            "public/assets/backgrounds/bg_015.png|0"
+            "public/assets/backgrounds/bg_016.png|0"
+            "public/assets/backgrounds/bg_017.png|0"
+            "public/assets/backgrounds/bg_018.png|0"
+            "public/assets/backgrounds/bg_019.png|0"
+            "public/assets/backgrounds/bg_020.png|0"
+            "public/assets/backgrounds/bg_021.png|0"
+            "public/assets/backgrounds/bg_022.png|0"
+            "public/assets/backgrounds/bg_023.png|0"
+            "public/assets/backgrounds/bg_024.png|0"
+            "public/assets/backgrounds/bg_025.png|0"
+            "public/assets/backgrounds/bg_026.png|0"
+            "public/assets/backgrounds/bg_027.png|0"
+            "public/assets/backgrounds/bg_028.png|0"
+            "public/assets/backgrounds/bg_029.png|0"
+            "public/assets/backgrounds/bg_030.png|0"
+            "public/assets/backgrounds/intro_castle.png|1600"
+            "public/assets/backgrounds/map/knight/knight.png|160"
+            "public/assets/ui/heart.png|128"
+            "public/assets/ui/shuffle.png|128"
+            "public/assets/ui/ruby_chest_closed.png|256"
+            "public/assets/ui/ruby_chest_open.png|256"
+            "public/assets/ui/info_ruby.png|128"
+            "public/assets/objectives/objective_dragon_caged_01.png|256"
+            "public/assets/objectives/objective_dragon_caged_02.png|256"
+            "public/assets/objectives/objective_dragon_caged_03.png|256"
+            "public/assets/backgrounds/map/ruby/ruby_shard_01.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_02.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_03.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_04.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_05.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_06.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_07.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_08.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_09.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_10.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_11.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_12.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_13.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_14.png|320"
+            "public/assets/backgrounds/map/ruby/ruby_shard_15.png|320"
+          )
+          for it in "${items[@]}"; do
+            src="${it%%|*}"; w="${it##*|}"; out="${src%.png}.webp"
+            if [ ! -f "$src" ]; then echo "missing $src"; exit 1; fi
+            if [ "$w" = "0" ]; then cwebp -quiet -q 80 -m 6 "$src" -o "$out"; else cwebp -quiet -q 82 -m 6 -resize "$w" 0 "$src" -o "$out"; fi
+            git rm -q "$src"; git add "$out"
+            echo "$src -> $out $(stat -c%s "$out") bytes"
+          done
+
+      - name: Re-encode music to 128 kbps
+        run: |
+          set -e
+          for f in public/assets/audio/music/*.mp3 public/assets/audio/A/win.mp3; do
+            br=$(ffprobe -v error -show_entries format=bit_rate -of csv=p=0 "$f")
+            if [ "${br:-0}" -gt 160000 ]; then
+              ffmpeg -v error -y -i "$f" -map 0:a -c:a libmp3lame -b:a 128k "$f.tmp.mp3"
+              mv "$f.tmp.mp3" "$f"; git add "$f"
+              echo "$f $br -> $(stat -c%s "$f") bytes"
+            fi
+          done
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "BR-JV-P5: delete unused assets, WebP images, 128 kbps music (automated)"
+          git push origin HEAD:br-jv-p5-cleanup
+          du -sh public/assets
