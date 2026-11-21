@@ -19,7 +19,11 @@ export interface Gem {
   gridLevel?: number; 
 }
 
-export const GEM_TYPES_ALL: GemType[] = ["ruby", "blood", "amethyst", "onyx", "silver"];
+// BR-JV-P1b: 6th gem "rose" (heart). It only appears from ROSE_FROM_LEVEL (owner decision: option C).
+// Levels below that use exactly the original 5 gems, so they stay identical to before.
+const BASE_GEM_TYPES: GemType[] = ["ruby", "blood", "amethyst", "onyx", "silver"];
+export const ROSE_FROM_LEVEL = 61;
+export const GEM_TYPES_ALL: GemType[] = [...BASE_GEM_TYPES, "rose"];
 
 const SWAP_MS = 160;
 const CLEAR_MS = 280;
@@ -119,12 +123,13 @@ function clamp(n: number, min: number, max: number) {
 
 function getActiveGemTypesForLevel(level: number, count: number): GemType[] {
   const rnd = mulberry32(100000 + level * 1337);
-  const shuffled = shuffleWithRng(GEM_TYPES_ALL, rnd);
+  const list = level >= ROSE_FROM_LEVEL ? GEM_TYPES_ALL : BASE_GEM_TYPES;
+  const shuffled = shuffleWithRng(list, rnd);
   return shuffled.slice(0, clamp(count, 1, shuffled.length));
 }
 
 function pickWeightedGemType(pool: GemType[], favoredTypes?: GemType[], luckyCascade = false) {
-  const validPool = pool.length > 0 ? pool : GEM_TYPES_ALL;
+  const validPool = pool.length > 0 ? pool : BASE_GEM_TYPES;
   const favored = (favoredTypes ?? []).filter(
     (t) => t !== "chest" && validPool.includes(t)
   );
@@ -209,7 +214,7 @@ const generateRandomGem = (
   assist?: RefillAssist
 ): Gem => {
   const isChest = Math.random() < chanceForChest;
-  const pool = activeTypes.length > 0 ? activeTypes : GEM_TYPES_ALL;
+  const pool = activeTypes.length > 0 ? activeTypes : BASE_GEM_TYPES;
   const type = isChest
     ? "chest"
     : pickWeightedGemType(pool, assist?.favoredTypes, !!assist?.luckyCascade);
@@ -405,7 +410,8 @@ function shuffleToPlayable(gems: Gem[], size: number, mask: boolean[][], pool: G
 function getGemCountForLevel(level: number) {
   if (level <= 10) return 5;
   const want = 5 + Math.floor((level - 1) / 10);
-  return clamp(want, 5, Math.min(12, GEM_TYPES_ALL.length));
+  const maxForLevel = level >= ROSE_FROM_LEVEL ? GEM_TYPES_ALL.length : BASE_GEM_TYPES.length;
+  return clamp(want, 5, Math.min(12, maxForLevel));
 }
 
 function isChallengeMet(challenge: any, progress: GoalProgress, dragonHp: number) {
