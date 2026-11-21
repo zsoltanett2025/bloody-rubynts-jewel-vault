@@ -4,7 +4,7 @@ type IntroScreenProps = {
 
 export function IntroScreen({ onContinue }: IntroScreenProps) {
   // PNG background path
-  const bg = `${import.meta.env.BASE_URL}assets/backgrounds/intro_castle.png`;
+  const bg = `${import.meta.env.BASE_URL}assets/backgrounds/intro_castle.webp`;
 
   return (
     <div

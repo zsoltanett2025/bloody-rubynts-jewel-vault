@@ -35,7 +35,7 @@ export function ShardModal({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
           {Array.from({ length: 15 }, (_, i) => {
            const img = assetUrl(
-          `assets/backgrounds/map/ruby/ruby_shard_${String(i + 1).padStart(2, "0")}.png`
+          `assets/backgrounds/map/ruby/ruby_shard_${String(i + 1).padStart(2, "0")}.webp`
       );
             const got = !!unlocked[i];
             return (
