@@ -1,12 +1,6 @@
 import { GAME_ASSETS, GEM_SKIN } from "../../utils/gameAssets";
+import { GEM_ART_V2 } from "../../utils/gemArtV2";
 import type { Gem } from "./useMatch3";
-
-// Chests keep their two variants (both clearly read as "chest").
-function hashToChest(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h % 2 === 0 ? GAME_ASSETS.chests.purple : GAME_ASSETS.chests.blue;
-}
 
 const DRAGON_LEVELS = [67, 134, 201, 268, 335, 402, 469];
 
@@ -31,25 +25,27 @@ export function GemComponent({
   const y = Math.round(gem.y * size);
 
   // BR-JV-P0: one type = one picture (no random per-gem skins)
+  // BR-JV-P1a: new vector art; the rainbow power is its own gem (Vault Heart)
   const baseGemUrl =
     gem.type === "chest"
-      ? hashToChest(gem.id)
-      : GEM_SKIN[gem.type] ?? GAME_ASSETS.gems.ruby_round;
+      ? GEM_ART_V2.chest
+      : gem.power === "rainbow"
+        ? GEM_ART_V2.rainbow
+        : GEM_SKIN[gem.type] ?? GAME_ASSETS.gems.ruby_round;
 
   const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
 
+  // BR-JV-P1a: power-ups are glowing overlays; the gem underneath stays fully visible
   const powerIcon =
     gem.power === "stripe_h"
-      ? GAME_ASSETS.powerups.stripe_horizontal
+      ? GEM_ART_V2.stripe_h
       : gem.power === "stripe_v"
-        ? GAME_ASSETS.powerups.stripe_vertical
+        ? GEM_ART_V2.stripe_v
         : gem.power === "bomb"
-          ? GAME_ASSETS.powerups.bomb_3x3
-          : gem.power === "rainbow"
-            ? GAME_ASSETS.powerups.bomb_rainbow
-            : null;
+          ? GEM_ART_V2.bomb
+          : null;
 
-  const isPower = !!powerIcon && gem.type !== "chest";
+  const isPower = (!!powerIcon || gem.power === "rainbow") && gem.type !== "chest";
 
   // WOW: Dinamikus skálázás (Spawn -> Flash -> Select)
   let scale = 1;
@@ -102,12 +98,12 @@ export function GemComponent({
         alt={gem.type}
         draggable={false}
         className={`w-full h-full object-cover pointer-events-none ${dragonGlow} ${matchGlow}`}
-        style={{ opacity: isPower ? 0.42 : 1 }}
+        style={{ opacity: 1 }}
       />
 
-      {isPower && (
+      {isPower && powerIcon && (
         <img
-          src={powerIcon!}
+          src={powerIcon}
           alt={gem.power}
           draggable={false}
           className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,120,120,0.45)] animate-pulse-slow" // WOW: Lassú pulzálás
