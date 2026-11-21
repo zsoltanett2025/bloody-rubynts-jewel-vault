@@ -60,7 +60,7 @@ export function InfoButton(props: { onClick: () => void }) {
 
         {/* IKON (PNG) */}
         <img
-          src={`${import.meta.env.BASE_URL}assets/ui/info_ruby.png`}
+          src={`${import.meta.env.BASE_URL}assets/ui/info_ruby.webp`}
           alt="Info"
           draggable={false}
           className={[
