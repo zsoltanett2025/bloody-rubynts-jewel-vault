@@ -1,5 +1,6 @@
 import { GAME_ASSETS, GEM_SKIN } from "../../utils/gameAssets";
 import { GEM_ART_V2 } from "../../utils/gemArtV2";
+import { POWER_ART_V2 } from "../../utils/powerArtV2";
 import type { Gem } from "./useMatch3";
 
 const DRAGON_LEVELS = [67, 134, 201, 268, 335, 402, 469];
@@ -25,27 +26,25 @@ export function GemComponent({
   const y = Math.round(gem.y * size);
 
   // BR-JV-P0: one type = one picture (no random per-gem skins)
-  // BR-JV-P1a: new vector art; the rainbow power is its own gem (Vault Heart)
+  // BR-JV-P1a: new vector art
+  // BR-JV-P1c: power-ups are drawn INTO the gem picture (striped gem, vault-lock bomb, six-colour crystal)
+  const plainGemUrl = GEM_SKIN[gem.type] ?? GAME_ASSETS.gems.ruby_round;
   const baseGemUrl =
     gem.type === "chest"
       ? GEM_ART_V2.chest
       : gem.power === "rainbow"
-        ? GEM_ART_V2.rainbow
-        : GEM_SKIN[gem.type] ?? GAME_ASSETS.gems.ruby_round;
+        ? POWER_ART_V2.rainbow
+        : gem.power === "stripe_h"
+          ? POWER_ART_V2.stripe_h[gem.type] ?? plainGemUrl
+          : gem.power === "stripe_v"
+            ? POWER_ART_V2.stripe_v[gem.type] ?? plainGemUrl
+            : gem.power === "bomb"
+              ? POWER_ART_V2.bomb[gem.type] ?? plainGemUrl
+              : plainGemUrl;
 
   const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
 
-  // BR-JV-P1a: power-ups are glowing overlays; the gem underneath stays fully visible
-  const powerIcon =
-    gem.power === "stripe_h"
-      ? GEM_ART_V2.stripe_h
-      : gem.power === "stripe_v"
-        ? GEM_ART_V2.stripe_v
-        : gem.power === "bomb"
-          ? GEM_ART_V2.bomb
-          : null;
-
-  const isPower = (!!powerIcon || gem.power === "rainbow") && gem.type !== "chest";
+  const isPower = !!gem.power && gem.type !== "chest";
 
   // WOW: Dinamikus skálázás (Spawn -> Flash -> Select)
   let scale = 1;
@@ -100,15 +99,6 @@ export function GemComponent({
         className={`w-full h-full object-cover pointer-events-none ${dragonGlow} ${matchGlow}`}
         style={{ opacity: 1 }}
       />
-
-      {isPower && powerIcon && (
-        <img
-          src={powerIcon}
-          alt={gem.power}
-          draggable={false}
-          className="pointer-events-none absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,120,120,0.45)] animate-pulse-slow" // WOW: Lassú pulzálás
-        />
-      )}
 
       {isDragonLevel && !isPower && gem.type !== "chest" && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-500/6 via-transparent to-black/8" />
