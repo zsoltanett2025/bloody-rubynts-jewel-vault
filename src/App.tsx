@@ -9,6 +9,7 @@ import { LevelMap } from "./components/game/LevelMap";
 import { WalletModal } from "./components/game/WalletModal";
 import { ShopModal } from "./components/game/ShopModal";
 import { GAME_ASSETS, GEM_SKIN } from "./utils/gameAssets";
+import { GEM_ART_V2 } from "./utils/gemArtV2";
 import { TopBar } from "./components/game/TopBar";
 import { assetUrl } from "./utils/assetUrl";
 import { StoryOverlay } from "./components/game/StoryOverlay";
@@ -190,7 +191,7 @@ function getObjectiveIcon(rules: LevelRules): string {
   }
 
   if (rules.goal.type === "chest") {
-    return GAME_ASSETS.chests.purple;
+    return GEM_ART_V2.chest;
   }
 
   if (rules.goal.type === "clear") {
