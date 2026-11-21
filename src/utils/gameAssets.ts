@@ -129,4 +129,5 @@ export const GEM_SKIN: Record<string, string> = {
   amethyst: GEM_ART_V2.amethyst, // purple, square cushion
   onyx: GEM_ART_V2.onyx, // blue sapphire, hexagon
   silver: GEM_ART_V2.silver, // green emerald, triangle
+  rose: GEM_ART_V2.rose, // pink, heart (BR-JV-P1b, from level 61)
 };
