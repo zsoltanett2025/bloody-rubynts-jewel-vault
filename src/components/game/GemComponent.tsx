@@ -1,14 +1,13 @@
-import { useMemo } from "react";
-import { GAME_ASSETS } from "../../utils/gameAssets";
+import { GAME_ASSETS, GEM_SKIN } from "../../utils/gameAssets";
 import type { Gem } from "./useMatch3";
 
-function hashToIndex(id: string, mod: number) {
+// Chests keep their two variants (both clearly read as "chest").
+function hashToChest(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return mod === 0 ? 0 : h % mod;
+  return h % 2 === 0 ? GAME_ASSETS.chests.purple : GAME_ASSETS.chests.blue;
 }
 
-const SIMPLE_SKINS_UNTIL_LEVEL = 10;
 const DRAGON_LEVELS = [67, 134, 201, 268, 335, 402, 469];
 
 export function GemComponent({
@@ -31,38 +30,13 @@ export function GemComponent({
   const x = Math.round(gem.x * size);
   const y = Math.round(gem.y * size);
 
-  const pools: Record<string, string[]> = {
-    ruby: [
-      GAME_ASSETS.gems.ruby_round,
-      GAME_ASSETS.gems.ruby_oval,
-      GAME_ASSETS.gems.ruby_cushion,
-      GAME_ASSETS.gems.ruby_heart,
-      GAME_ASSETS.gems.ruby_pear,
-      GAME_ASSETS.gems.ruby_purple,
-      GAME_ASSETS.gems.red_diamond,
-    ],
-    blood: [GAME_ASSETS.gems.blood_drop],
-    amethyst: [GAME_ASSETS.gems.amethyst_oval, GAME_ASSETS.gems.amethyst_cushion],
-    onyx: [GAME_ASSETS.gems.onyx_round],
-    silver: [GAME_ASSETS.gems.emerald_round],
-    chest: [GAME_ASSETS.chests.purple, GAME_ASSETS.chests.blue],
-  };
+  // BR-JV-P0: one type = one picture (no random per-gem skins)
+  const baseGemUrl =
+    gem.type === "chest"
+      ? hashToChest(gem.id)
+      : GEM_SKIN[gem.type] ?? GAME_ASSETS.gems.ruby_round;
 
-  
-
-  const simpleSkins = typeof level === "number" && level <= SIMPLE_SKINS_UNTIL_LEVEL;
   const isDragonLevel = typeof level === "number" && DRAGON_LEVELS.includes(level);
-
-  const baseGemUrl = useMemo(() => {
-  const currentPool =
-    pools[gem.type] ?? [GAME_ASSETS.gems.ruby_round];
-
-  if (simpleSkins) return currentPool[0];
-
-  return currentPool[
-    hashToIndex(gem.id, currentPool.length)
-  ];
-}, [simpleSkins, gem.type, gem.id]);
 
   const powerIcon =
     gem.power === "stripe_h"
