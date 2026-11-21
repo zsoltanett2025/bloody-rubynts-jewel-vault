@@ -200,19 +200,19 @@ function formatDurationShort(ms: number): string {
 
 function getObjectiveIcon(rules: LevelRules): string {
   if (rules.challenge?.type === "lava") {
-    return assetUrl("assets/objectives/objective_dragon_caged_01.png");
+    return assetUrl("assets/objectives/objective_dragon_caged_01.webp");
   }
 
   if (rules.challenge?.type === "bomb_collect") {
-    return assetUrl("assets/objectives/objective_dragon_caged_02.png");
+    return assetUrl("assets/objectives/objective_dragon_caged_02.webp");
   }
 
   if (rules.challenge?.type === "rainbow_focus") {
-    return assetUrl("assets/objectives/objective_dragon_caged_03.png");
+    return assetUrl("assets/objectives/objective_dragon_caged_03.webp");
   }
 
   if (rules.challenge?.type === "dragon") {
-    return assetUrl("assets/objectives/objective_dragon_caged_02.png");
+    return assetUrl("assets/objectives/objective_dragon_caged_02.webp");
   }
 
   if (rules.goal.type === "chest") {
@@ -633,7 +633,8 @@ useEffect(() => {
 
     if (screen === "menu") return GAME_ASSETS.menuBackground;
     if (screen === "map") {
-      return pickBgByBlock(GAME_ASSETS.mapBackgrounds, currentLevel, 20, fallback);
+      // BR-JV-P5: the season map draws its own background; do not download a hidden image
+      return fallback;
     }
     return pickBgByBlock(GAME_ASSETS.storyBackgrounds, m3.level, 20, fallback);
   }, [screen, currentLevel, m3.level]);
